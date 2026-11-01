@@ -553,3 +553,8 @@ test('v0.5.19: клетки поля доступны с клавиатуры и
   assert.match(ui, /ArrowUp: \[0, -1\].*ArrowDown: \[0, 1\].*ArrowLeft: \[-1, 0\].*ArrowRight: \[1, 0\]/);
   assert.match(css, /\.cell:focus-visible\{outline:3px solid #ffd700/);
 });
+
+test('v0.5.19: атрибут hidden работает и у кнопок внутри диалогов', () => {
+  const css = fs.readFileSync(new URL('../style.css', import.meta.url), 'utf8');
+  assert.match(css, /\[hidden\]\{display:none!important\}/);
+});
