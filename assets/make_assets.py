@@ -59,3 +59,10 @@ tile('grass',''.join(f'<path d="M{x} 80 Q{x+3} 60 {x+8} 46" {S("#3c7a3a")}/>' fo
 tile('caramba',f'<path d="M50 14 L60 38 L86 40 L66 56 L74 82 L50 66 L26 82 L34 56 L14 40 L40 38 Z" fill="#e3b23c" stroke="{E}" stroke-width="3"/>'+txt('!',62,30))
 tile('galleon',f'<rect x="20" y="44" width="60" height="34" rx="4" fill="#8a5a2b" stroke="{E}" stroke-width="3"/><path d="M20 44 Q50 22 80 44" fill="#a0692f" stroke="{E}" stroke-width="3"/><path d="M20 56 H80" stroke="#d4a017" stroke-width="5"/><circle cx="50" cy="62" r="6" fill="#d4a017" stroke="{E}" stroke-width="2"/>')
 open('pieces/treasure.svg','w').write(f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M30 34 Q50 26 70 34 L82 78 Q50 92 18 78 Z" fill="#8a5a2b" stroke="{E}" stroke-width="5"/><path d="M34 34 L40 22 H60 L66 34" fill="#a0692f" stroke="{E}" stroke-width="4"/><circle cx="50" cy="60" r="14" fill="#e3b23c" stroke="#7a5a12" stroke-width="3"/><text x="50" y="66" font-family="Georgia,serif" font-size="16" font-weight="bold" text-anchor="middle" fill="#7a5a12">3</text></svg>')
+# Фишки персонажей: круг в цвете команды + рисунок с клетки
+import re as _re
+for ch in ['bengunn','friday','missionary']:
+    art=_re.sub(r'^<svg[^>]*>|</svg>$','',open(f'tiles/{ch}.svg').read())
+    art=_re.sub(r'<rect x="2" y="2"[^>]*/>','',art,count=1)
+    for c,v in cols.items():
+        open(f'pieces/{ch}-{c}.svg','w').write(f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="44" fill="#fff"/><circle cx="50" cy="50" r="38" fill="{v}" stroke="{E}" stroke-width="4"/><clipPath id="c"><circle cx="50" cy="50" r="34"/></clipPath><g clip-path="url(#c)"><circle cx="50" cy="50" r="34" fill="#efe0bb"/><g transform="translate(14 12) scale(0.72)">{art}</g></g></svg>')
