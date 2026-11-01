@@ -1,5 +1,5 @@
 # Клиент «Шакала» на GitHub Pages: статические файлы, без сборки.
-# Адрес сервера берётся из переменной репозитория SERVER_URL (Settings → Secrets and variables → Actions → Variables).
+# URL Cloudflare Worker берётся из переменной репозитория SERVER_URL (Settings → Secrets and variables → Actions → Variables).
 name: Deploy client to GitHub Pages
 on:
   push:
@@ -22,18 +22,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
       - run: npm test
       - name: Собрать сайт
         env:
           SERVER_URL: ${{ vars.SERVER_URL }}
         run: |
-          mkdir -p _site
-          cp -r index.html style.css favicon.svg favicon.ico src assets positions _site/
-          if [ -n "$SERVER_URL" ]; then
-            sed -i "s#^export const RENDER_URL = .*#export const RENDER_URL = '${SERVER_URL%/}';#" _site/src/config.js
-          fi
-          grep -n "RENDER_URL =" _site/src/config.js
+          npm run build:web
           touch _site/.nojekyll
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
