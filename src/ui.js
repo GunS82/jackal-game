@@ -1,8 +1,9 @@
 import * as G from './game.js';
+import * as V from './view.js';
 import { ASSETS, ARROW_GLYPH, tileImg, pirateImg, shipImg, coinImg, hlImg } from './assets.js';
 const tileName = t => !t.open ? 'закрытая клетка' : t.kind === 'arrow' ? 'стрелка ' + t.dirs.map(d => ARROW_GLYPH[d.join(',')]).join('') : (t.kind === 'plane' && t.used ? 'пусто' : ASSETS[t.kind]?.label ?? t.kind) + (t.coins ? `, монет: ${t.coins}` : '');
 const $ = s => document.querySelector(s);
-let state = null, sel = null, withCoin = false;
+let state = null, sel = null, withCoin = false, notice = '';
 // Кем играет это устройство: 'all' — hot-seat, 0/1 — «я играю за игрока 1/2» (файловый мультиплеер).
 let me = localStorage.getItem('jackal-me') ?? 'all';
 
@@ -40,8 +41,8 @@ function render() {
     ps.forEach((p, i) => {
       const d = document.createElement('i');
       d.className = `pirate n${ps.length} i${i}` + (p.id === sel ? ' sel' : '') + (p.trapped ? ' trapped' : '');
-      d.title = `${G.TEAMS[p.team].name} ${p.id % 3 + 1}` + (p.carry ? ', несёт монету' : '') + (p.trapped ? ', в капкане' : '');
-      d.innerHTML = pic(pirateImg(p.team), '●', 'pi') + (p.carry ? pic(coinImg, '🪙', 'pcoin') : '') + (p.spin ? `<em>${p.spin}</em>` : '');
+      d.title = `${G.TEAMS[p.team].name} ${p.id % 3 + 1}` + (V.pirateHasCoin(s, p, { sel, withCoin }) ? ', несёт монету' : '') + (p.trapped ? ', в капкане' : '');
+      d.innerHTML = pic(pirateImg(p.team), '●', 'pi') + (V.pirateHasCoin(s, p, { sel, withCoin }) ? pic(coinImg, '🪙', 'pcoin') : '') + (p.spin ? `<em>${p.spin}</em>` : '');
       c.append(d);
     });
     const here = targets.filter(m => m.x === x && m.y === y);
@@ -50,16 +51,12 @@ function render() {
     b.append(c);
   }
   const T = G.TEAMS[s.current];
-  const who = `игрок ${G.playerOf(s, s.current) + 1}`;
-  $('#turn').innerHTML = s.over ? `<b>Игра окончена</b> (${G.END_REASONS[s.endReason] ?? ''}). ${s.endReason === 'noMoves' ? 'Ничья' : 'Победа'}: ${G.winner(s).map(k => G.sideName(s, k)).join(', ')}`
-    : `Ход: <span class="dot" style="background:${T.color}"></span> ${T.name} (${who}) · №${s.turn + 1}` + (s.pending ? ' · <b>выберите направление</b>' : '') + (myTurn() ? '' : ` · <b>ждём ход соперника — загрузите его файл</b>`);
+  $('#turn').innerHTML = (s.over ? '' : `<span class="dot" style="background:${T.color}"></span> `) + V.headerText(s, { myTurn: myTurn() });
+  $('#status').textContent = notice; notice = '';
   const sc = G.sideScores(s);
   $('#score').innerHTML = Object.keys(sc).map(k => `${G.sideName(s, +k)}: <b>${sc[k]}</b>`).join(' · ') + ` · осталось ${G.coinsLeft(s)} · утонуло ${s.lost} · ром: ${G.activeTeams(s.mode).map(t => s.rum[t]).join('/')}`;
-  const p = typeof sel === 'number' ? s.pirates[sel] : null;
-  const canCoin = p && !s.pending && (G.tileAt(s, p.x, p.y)?.coins > 0 || p.carry) && moves.some(m => m.pid === sel && m.coin) && moves.some(m => m.pid === sel && !m.coin);
-  $('#coinBtn').hidden = !canCoin; $('#coinBtn').textContent = withCoin ? '🪙 Несёт монету (снять)' : '🪙 Взять монету';
-  $('#shipBtn').hidden = !moves.some(m => m.type === 'ship');
-  $('#reviveBtn').hidden = !moves.some(m => m.type === 'revive');
+  const bs = V.buttons(s, moves, { sel, withCoin, myTurn: myTurn() });
+  for (const [id, b] of [['#shipBtn', bs.ship], ['#coinBtn', bs.coin], ['#reviveBtn', bs.revive]]) { const el = $(id); el.disabled = b.disabled; el.textContent = b.label; el.setAttribute('aria-pressed', b.pressed); el.hidden = false; }
   $('#me').value = me;
   $('#log').textContent = s.log.slice(-6).reverse().join('\n');
   if (s.pending && myTurn() && sel !== s.pending.pid) { sel = s.pending.pid; withCoin = s.pending.coin; return render(); }
@@ -69,7 +66,8 @@ function render() {
 function click(x, y, targets) {
   const hit = targets.find(m => m.x === x && m.y === y);
   if (hit) { const { kind, ...mv } = hit; state = G.applyMove(state, mv); sel = null; withCoin = false; return render(); }
-  if (!myTurn() || state.pending) return;
+  if (!myTurn()) return;
+  if (state.pending) { const p = state.pirates[state.pending.pid]; if (!(p.x === x && p.y === y)) { notice = V.blockedNotice(state); render(); } return; }
   const mine = state.pirates.filter(p => p.alive && p.x === x && p.y === y && p.team === state.current && G.pirateMoves(state, p).length);
   if (mine.length) { const i = mine.findIndex(p => p.id === sel); sel = mine[(i + 1) % mine.length].id; withCoin = !!state.pirates[sel].carry; }
   else sel = null;

@@ -133,3 +133,37 @@ test('колода: 117 клеток, по 3 стрелки каждого из 
   assert.equal(kinds.filter(k => k === 'arrow1').length, 3); assert.equal(kinds.filter(k => k === 'arrow1d').length, 3);
   const coins = Object.values(s.tiles).reduce((a, t) => a + (G.CHEST[t.kind] ?? 0), 0); assert.equal(coins, 37);
 });
+
+// ---- v0.3.2: представление ----
+import * as V from '../src/view.js';
+test('заголовок: конь — «выберите клетку», стрелка — «выберите направление»', () => {
+  let s = pos({ tiles: { '6,10': { kind: 'horse' } }, pirates: [{ team: 0, x: 6, y: 11 }] });
+  assert.doesNotMatch(V.headerText(s), /выберите/);
+  s = mv(s, m => m.x === 6 && m.y === 10); assert.match(V.headerText(s), /выберите клетку/); assert.match(V.blockedNotice(s), /^Сначала завершите ход: выберите клетку/);
+  let a = pos({ tiles: { '6,10': { kind: 'arrow2', dirs: [[-1, 0], [1, 0]] } }, pirates: [{ team: 0, x: 6, y: 11 }] });
+  a = mv(a, m => m.x === 6 && m.y === 10); assert.match(V.headerText(a), /выберите направление/); assert.match(V.blockedNotice(a), /выберите направление/);
+  assert.equal(V.blockedNotice(G.newGame({ seed: 1 })), null);
+  assert.match(V.headerText(G.newGame({ seed: 1 }), { myTurn: false }), /ждём ход соперника/);
+});
+test('кнопки всегда есть, недоступные — disabled; монета — один тоггл', () => {
+  const s = G.loadState(fs.readFileSync('test-positions/hl-coin.json', 'utf8')); const moves = G.legalMoves(s);
+  let b = V.buttons(s, moves, {}); assert.deepEqual(Object.keys(b), ['ship', 'coin', 'revive']);
+  assert.equal(b.ship.disabled, true); assert.equal(b.coin.disabled, true); assert.equal(b.revive.disabled, true);
+  b = V.buttons(s, moves, { sel: 0 }); assert.equal(b.coin.disabled, false); assert.equal(b.coin.pressed, false);
+  const b2 = V.buttons(s, moves, { sel: 0, withCoin: true }); assert.equal(b2.coin.pressed, true); assert.equal(b2.coin.label.length, b.coin.label.length);
+  b = V.buttons(s, moves, { myTurn: false }); assert.ok(b.ship.disabled && b.coin.disabled && b.revive.disabled);
+});
+test('метка монеты у пирата: тоггл, продолжение хода с монетой, вертушка', () => {
+  const s = G.loadState(fs.readFileSync('test-positions/hl-coin.json', 'utf8'));
+  assert.equal(V.pirateHasCoin(s, s.pirates[0], { sel: 0, withCoin: true }), true);
+  assert.equal(V.pirateHasCoin(s, s.pirates[0], { sel: 0, withCoin: false }), false);
+  let a = pos({ tiles: { '6,11': { coins: 1 }, '6,10': { kind: 'arrow2', dirs: [[-1, 0], [1, 0]] } }, pirates: [{ team: 0, x: 6, y: 11 }] });
+  a = mv(a, m => m.x === 6 && m.y === 10 && m.coin); assert.equal(V.pirateHasCoin(a, a.pirates[0]), true);
+  let c = G.loadState(fs.readFileSync('test-positions/spin-coin.json', 'utf8')); c = mv(c, m => m.x === 6 && m.y === 9 && m.coin); assert.equal(V.pirateHasCoin(c, c.pirates[0]), true);
+});
+test('позиции для тестировщика: hl-death и hl-coin', () => {
+  const d = G.classifyMoves(G.loadState(fs.readFileSync('test-positions/hl-death.json', 'utf8')));
+  assert.equal(d.find(m => m.pid === 0 && m.x === 5 && m.y === 10).kind, 'death'); assert.ok(d.some(m => m.kind === 'move'));
+  const c = G.classifyMoves(G.loadState(fs.readFileSync('test-positions/hl-coin.json', 'utf8')));
+  assert.equal(c.find(m => m.pid === 0 && m.x === 6 && m.y === 12 && m.coin).kind, 'coin'); assert.equal(c.find(m => m.pid === 0 && m.x === 6 && m.y === 12 && !m.coin).kind, 'move');
+});

@@ -2,8 +2,9 @@
 <title>Шакал — остров сокровищ</title><link rel="stylesheet" href="style.css"></head><body>
 <header><h1>🏴‍☠️ Шакал</h1><div id="turn"></div></header>
 <main id="board"></main>
+<div id="status" role="status" aria-live="polite"></div>
 <div id="score"></div>
-<nav><button id="shipBtn">⛵ Двигать корабль</button><button id="coinBtn" hidden></button><button id="reviveBtn" hidden>❤ Воскресить</button>
+<nav><button id="shipBtn">⛵ Двигать корабль</button><button id="coinBtn">🪙 Без монеты</button><button id="reviveBtn">❤ Воскресить</button>
 <label class="me">Это устройство: <select id="me"><option value="all">оба игрока (hot-seat)</option><option value="0">я играю за игрока 1</option><option value="1">я играю за игрока 2</option></select></label><button id="newBtn">Новая игра</button><button id="saveBtn">Сохранить</button><button id="loadBtn">Загрузить позицию</button><input type="file" id="file" accept=".json,application/json" hidden></nav>
 <p class="help">Нажмите на своего пирата (повторное нажатие — следующий пират на клетке), затем на подсвеченную клетку. Для корабля — «Двигать корабль». Игра по файлам: каждый выбирает «я играю за игрока N», после хода жмёт «Сохранить» и пересылает файл сопернику, тот — «Загрузить позицию».</p>
 <pre id="log"></pre>

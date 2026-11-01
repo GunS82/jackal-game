@@ -26,3 +26,8 @@ dialog{border-radius:12px}dialog button{display:block;width:100%;margin:6px 0}
 .cell img.hl{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:3}
 .target{box-shadow:none;filter:none}.target:not(:has(img.hl)){box-shadow:inset 0 0 0 3px #3f3}
 dialog .opt{display:block;margin:8px 0;font-size:14px}
+#status{min-height:1.3em;font-size:14px;color:#ffd36b;font-weight:bold;text-align:center}
+nav button:disabled{opacity:.45;cursor:not-allowed}nav button[aria-pressed=true]{outline:2px solid #3f3}
+#coinBtn{min-width:9.5em}#shipBtn{min-width:11em}#reviveBtn{min-width:8.5em}
+.cell.ship .pirate{position:absolute;width:45%;height:45%;z-index:2}
+.cell.ship .pirate img.pi{filter:drop-shadow(0 0 1.5px #fff) drop-shadow(0 0 1px #000)}

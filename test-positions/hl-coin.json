@@ -1,0 +1,4 @@
+{ "mode": "2p", "current": 0, "defaultTile": { "kind": "empty", "open": true },
+  "_note": "Белый пират на (6,11) прямо перед своим кораблём, на клетке 2 монеты. Ход на корабль (6,12) с монетой — hl-coin; без монеты — hl-move. Чёрный союзник рядом не мешает.",
+  "tiles": { "6,11": { "kind": "chest2", "open": true, "coins": 2 } },
+  "pirates": [ { "team": 0, "x": 6, "y": 11 }, { "team": 2, "x": 7, "y": 10 }, { "team": 1, "onShip": true } ] }

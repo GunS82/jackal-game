@@ -1,0 +1,4 @@
+{ "mode": "2p", "current": 0, "defaultTile": { "kind": "empty", "open": true },
+  "_note": "Белый пират на (6,10). Слева открытый людоед (5,10) — смертельный ход (hl-death). Остальные соседние клетки — обычные ходы (hl-move).",
+  "tiles": { "5,10": { "kind": "ogre", "open": true }, "6,11": { "kind": "empty", "open": true, "coins": 0 } },
+  "pirates": [ { "team": 0, "x": 6, "y": 10 }, { "team": 0, "onShip": true }, { "team": 1, "onShip": true } ] }
