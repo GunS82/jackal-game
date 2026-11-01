@@ -1,11 +1,14 @@
 import * as G from './game.js';
 import * as V from './view.js';
+import * as Net from './net.js';
 import { ASSETS, ARROW_GLYPH, ROLE_BADGE, tileImg, pirateImg, shipImg, coinImg, treasureImg, hlImg } from './assets.js';
 const tileName = t => !t.open ? 'закрытая клетка' : t.kind === 'arrow' ? 'стрелка ' + t.dirs.map(d => ARROW_GLYPH[d.join(',')]).join('') : (t.kind === 'plane' && t.used ? 'пусто' : ASSETS[t.kind]?.label ?? t.kind) + (t.coins ? `, монет: ${t.coins}` : '') + (t.treasure ? ', сокровище (3 монеты)' : '');
 const $ = s => document.querySelector(s);
 let state = null, sel = null, withCoin = false, notice = '';
 // Кем играет это устройство: 'all' — hot-seat, 0/1 — «я играю за игрока 1/2» (файловый мультиплеер).
 let me = localStorage.getItem('jackal-me') ?? 'all';
+// Онлайн: net = { sess: {code, token, player}, connected, opponent, stop } или null.
+let net = null;
 
 // <img> с запасным эмодзи, если файла нет.
 function pic(src, emoji, cls = '', rot = 0) {
@@ -26,10 +29,10 @@ function tileHTML(t) {
   if (t.treasure) h += `<b class="treasure" title="сокровище">${pic(treasureImg, '💰', 'ti')}${t.treasure > 1 ? t.treasure : ''}</b>`;
   return h;
 }
-const myTurn = () => me === 'all' || G.controllerOf(state) === +me;
+const myTurn = () => net ? !state.over && G.controllerOf(state) === net.sess.player : me === 'all' || G.controllerOf(state) === +me;
 
 function render() {
-  const s = state, moves = myTurn() ? G.classifyMoves(s) : [];
+  const s = state, moves = myTurn() ? G.classifyMoves(G.publicState(s)) : []; // подсветка не выдаёт содержимое закрытых клеток
   const targets = V.targets(moves, { s, sel, withCoin });
   const b = $('#board'); b.innerHTML = '';
   for (let y = 0; y < G.N; y++) for (let x = 0; x < G.N; x++) {
@@ -66,12 +69,35 @@ function render() {
   $('#me').value = me;
   $('#log').textContent = s.log.slice(-6).reverse().join('\n');
   if (s.pending && (!s.pending.type || s.pending.type === 'cave') && myTurn() && sel !== s.pending.pid) { sel = s.pending.pid; withCoin = s.pending.treasure ? 'T' : s.pending.coin; return render(); }
-  localStorage.setItem('jackal-save', G.serialize(s));
+  renderBanner();
+  if (!net) localStorage.setItem('jackal-save', G.serialize(s));
 }
+function renderBanner() {
+  const el = $('#banner'), b = net && V.onlineBanner(state, { player: net.sess.player, connected: net.connected, opponent: net.opponent });
+  el.hidden = !b; if (!b) return;
+  el.className = 'banner b-' + b.kind; el.innerHTML = `<b>${b.title}</b><small>${b.sub}</small>`;
+  $('#me').closest('label').hidden = true;
+}
+// Ход: локально применяем, онлайн — отправляем на сервер (он проверит и разошлёт состояние).
+async function play(mv) {
+  sel = null; withCoin = false;
+  if (!net) { state = G.applyMove(state, mv); return render(); }
+  try { await Net.move(net.sess, mv); } catch (e) { notice = e.message; render(); }
+}
+function goOnline(sess) {
+  net?.stop(); net = { sess, connected: false, opponent: 'waiting', stop: null };
+  net.stop = Net.connect(sess, msg => {
+    state = msg.state; net.opponent = msg.opponent; showCode(msg.code);
+    if (msg.opponent !== 'waiting' && $('#online').open) $('#online').close();
+    render();
+  }, ok => { if (net && net.connected !== ok) { net.connected = ok; if (state) render(); } }, () => { alert('Онлайн-игра не найдена на сервере'); goLocal(); });
+}
+function goLocal() { if (net) { net.stop(); Net.leave(net.sess); Net.forget(); net = null; $('#me').closest('label').hidden = false; $('#banner').hidden = true; } }
+function showCode(code) { $('#codeBox').innerHTML = [...code].map(c => `<span>${c}</span>`).join(''); $('#codeArea').hidden = false; }
 
 function click(x, y, targets) {
   const hit = targets.find(m => m.x === x && m.y === y);
-  if (hit) { const { kind, ...mv } = hit; state = G.applyMove(state, mv); sel = null; withCoin = false; return render(); }
+  if (hit) { const { kind, ...mv } = hit; return play(mv); }
   if (sel === 'rum') { sel = null; return render(); }
   if (!myTurn()) return;
   if (state.pending) { const p = state.pirates[state.pending.pid]; if (state.pending.type === 'lighthouse' || state.pending.type === 'quake' || !(p.x === x && p.y === y)) { notice = V.blockedNotice(state); render(); } return; }
@@ -81,15 +107,24 @@ function click(x, y, targets) {
   render();
 }
 
-function start(mode) { state = G.newGame({ mode, seed: Date.now() % 1e9, options: { houseCrocDeath: $('#optCroc').checked, archipelagoMissionary: $('#optArch').checked } }); sel = null; render(); }
+function start(mode) { goLocal(); state = G.newGame({ mode, seed: Date.now() % 1e9, options: { houseCrocDeath: $('#optCroc').checked, archipelagoMissionary: $('#optArch').checked } }); sel = null; render(); }
 $('#coinBtn').onclick = () => { withCoin = V.nextCargo(G.legalMoves(state), sel, withCoin); render(); };
 $('#rumBtn').onclick = () => { sel = sel === 'rum' ? null : 'rum'; render(); };
 $('#shipBtn').onclick = () => { sel = sel === 'ship' ? null : 'ship'; render(); };
-$('#reviveBtn').onclick = () => { const m = G.legalMoves(state).find(m => m.type === 'revive'); if (m) { state = G.applyMove(state, m); sel = null; render(); } };
+$('#reviveBtn').onclick = () => { const m = G.legalMoves(G.publicState(state)).find(m => m.type === 'revive'); if (m) play(m); };
 $('#me').onchange = e => { me = e.target.value; localStorage.setItem('jackal-me', me); sel = null; render(); };
 $('#newBtn').onclick = () => $('#menu').showModal();
 document.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => { start(b.dataset.mode); $('#menu').close(); });
 $('#saveBtn').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([G.serialize(state)], { type: 'application/json' })); a.download = `jackal-hod-${state.turn + 1}.json`; a.click(); };
 $('#loadBtn').onclick = () => $('#file').click();
-$('#file').onchange = async e => { const f = e.target.files[0]; if (!f) return; try { state = G.loadState(await f.text()); sel = null; render(); } catch (err) { alert(err.message); } e.target.value = ''; };
-try { const saved = localStorage.getItem('jackal-save'); if (saved) { state = G.loadState(saved); render(); } else start('2p'); } catch { start('2p'); }
+$('#file').onchange = async e => { const f = e.target.files[0]; if (!f) return; try { goLocal(); state = G.loadState(await f.text()); sel = null; render(); } catch (err) { alert(err.message); } e.target.value = ''; };
+// Онлайн-меню
+$('#onlineBtn').onclick = () => { $('#menu').close(); $('#onlineErr').textContent = ''; $('#codeArea').hidden = !net; $('#online').showModal(); };
+$('#createBtn').onclick = async () => { try { goLocal(); const sess = await Net.create({ houseCrocDeath: $('#optCroc').checked, archipelagoMissionary: $('#optArch').checked }); showCode(sess.code); goOnline(sess); } catch (e) { $('#onlineErr').textContent = e.message; } };
+$('#shareBtn').onclick = async () => { const code = net?.sess.code; if (!code) return; const text = `Сыграем в «Шакал»? Код игры: ${code} — ${location.origin}`; try { if (navigator.share) await navigator.share({ text }); else { await navigator.clipboard.writeText(code); $('#onlineErr').textContent = 'Код скопирован'; } } catch {} };
+$('#joinBtn').onclick = async () => { const code = $('#codeIn').value.trim().toUpperCase(); if (!code) return; try { goLocal(); const sess = await Net.join(code); goOnline(sess); $('#online').close(); } catch (e) { $('#onlineErr').textContent = e.message; } };
+$('#codeIn').onkeydown = e => { if (e.key === 'Enter') $('#joinBtn').click(); };
+$('#leaveBtn').onclick = () => { goLocal(); $('#online').close(); try { state = G.loadState(localStorage.getItem('jackal-save')); } catch { return start('2p'); } render(); };
+const sess = Net.saved();
+if (sess && location.protocol.startsWith('http')) goOnline(sess);
+else try { const saved = localStorage.getItem('jackal-save'); if (saved) { state = G.loadState(saved); render(); } else start('2p'); } catch { start('2p'); }

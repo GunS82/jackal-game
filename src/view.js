@@ -98,3 +98,12 @@ export function buttons(s, moves, { sel = null, withCoin = false, myTurn = true 
     rum: { disabled: busy || !moves.some(m => m.type === 'rum'), label: '🍾 Дать ром', pressed: sel === 'rum' },
   };
 }
+
+// Плашка онлайн-игры над полем: {kind, title, sub} или null. kind: wait | lost | left | turn | over.
+export function onlineBanner(s, { player, connected = true, opponent = 'online' } = {}) {
+  if (!connected) return { kind: 'lost', title: 'Соединение потеряно', sub: 'Переподключаемся…' };
+  if (opponent === 'waiting') return { kind: 'wait', title: 'Ждём соперника…', sub: 'Передайте код другу' };
+  if (opponent === 'left' || opponent === 'offline') return { kind: 'left', title: 'Соперник вышел', sub: opponent === 'offline' ? 'Ждём, пока он вернётся' : 'Можно подождать или начать новую игру' };
+  if (!s || s.over) return null;
+  return G.controllerOf(s) === player ? { kind: 'turn', title: 'Ваш ход!', sub: '' } : { kind: 'wait', title: 'Ход соперника', sub: `${G.TEAMS[s.current].name} думают` };
+}

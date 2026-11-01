@@ -486,3 +486,10 @@ export function classifyMoves(s) {
     return { ...m, kind };
   });
 }
+
+// Публичное состояние: содержимое закрытых клеток и seed раздачи скрыты (для показа в UI и отправки клиентам).
+export function publicState(s) {
+  const p = JSON.parse(JSON.stringify(s)); p.seed = null;
+  for (const k of Object.keys(p.tiles)) { const t = p.tiles[k]; if (!t.open) p.tiles[k] = { kind: 'empty', open: false, coins: 0 }; }
+  return p;
+}

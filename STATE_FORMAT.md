@@ -42,3 +42,6 @@
 - Клетка: `treasure` (1 — сокровище галеона, = 3 монеты), `lit` (разовый эффект ещё не сработал — клетка открыта маяком), `used` (маяк/самолёт использован). Новые kind: cave, bengunn, friday, missionary, lighthouse, quake, jungle, grass, caramba, galleon.
 - Пират: `role` — bengunn | friday | missionary | exmissionary (не входят в лимит 3), `inCave: true` — бродит в пещере, `gone: true` — выбыл навсегда, `carry` — 0/1/3 (true из старых файлов = 1).
 - `pending.type`: `cave` (выбрать выход), `lighthouse` {left}, `quake` {first}. Ходы: `reveal` {x,y}, `quake` {x,y}, `rum` {pid,target,x,y}; у хода с грузом может быть `treasure: true`.
+
+## Онлайн (v0.5)
+Сервер рассылает `{type:'state', code, player, opponent, state}`, где `opponent` — `waiting` | `online` | `offline` | `left`, а `state` — публичное состояние (`G.publicState`): закрытые клетки `{kind:'empty', open:false, coins:0}`, `seed: null`. API: `POST /api/create {options}` → `{code, token, player:0}`, `POST /api/join {code}` → `{token, player:1}`, `POST /api/move {code, token, move}`, `POST /api/leave {code, token}`, `GET /api/events?code&token` (SSE).

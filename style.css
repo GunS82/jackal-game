@@ -39,3 +39,11 @@ nav button:disabled{opacity:.45;cursor:not-allowed}nav button[aria-pressed=true]
 #rumBtn{min-width:8.5em}
 
 .pirate .pcoin.can{position:absolute;right:-12%;bottom:-12%;width:50%;height:50%;opacity:.45}
+
+/* v0.5 онлайн */
+.banner{display:flex;flex-direction:column;gap:2px;margin:4px auto;max-width:520px;padding:6px 12px;border:2px solid #5a3a1a;border-radius:10px;background:#f7ecd4;color:#3b2a14}
+.banner small{font-size:.8em;opacity:.8}.banner.b-turn{background:#cfe6b8}.banner.b-lost{background:#f6d6a8}.banner.b-left{background:#f0b6a4}.banner.b-wait{background:#f7ecd4}
+#menu button small{display:block;font-size:.7em;opacity:.75}#menu .primary,#online .primary{background:#e2b23c}
+#online{max-width:360px}#online .lbl{font-weight:bold;margin:.6em 0 .3em}#online .hint{font-size:.85em;opacity:.8}
+.codebox{display:flex;gap:8px;justify-content:center}.codebox span{display:inline-block;width:1.6em;padding:.2em 0;text-align:center;font:bold 1.6em sans-serif;border:2px solid #5a3a1a;border-radius:8px;background:#fff}
+#online input{font-size:1.1em;width:100%;box-sizing:border-box;padding:.4em;text-transform:uppercase}#online button{display:block;width:100%;margin:.4em 0}#online hr{border:0;border-top:2px dashed #b89a6a;margin:1em 0}
