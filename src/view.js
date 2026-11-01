@@ -27,8 +27,19 @@ export function hlKind(here) {
   return has('coin') ? 'coin' : has('coinLost') ? 'coin-lost' : has('death') ? 'death' : 'move';
 }
 
+// Итог партии: ничья при равном счёте лидеров (в т.ч. 0:0) или при endReason noMoves.
+export function resultText(s) {
+  const w = G.winner(s), why = `Игра окончена (${G.END_REASONS[s.endReason] ?? ''}).`;
+  return w.length === 1 && s.endReason !== 'noMoves' ? `${why} Победа: ${G.sideName(s, w[0])}` : `${why} Ничья`;
+}
+
+// Бледная метка «можно отвезти монету» на клетке (x,y) — поверх обычной подсветки.
+export function coinHintAt(classified, x, y, { sel = null, withCoin = false } = {}) {
+  return typeof sel === 'number' && !withCoin && classified.some(m => m.pid === sel && m.coin && m.kind === 'coin' && m.x === x && m.y === y);
+}
+
 export function headerText(s, { myTurn = true } = {}) {
-  if (s.over) return `Игра окончена (${G.END_REASONS[s.endReason] ?? ''}). ${s.endReason === 'noMoves' ? 'Ничья' : 'Победа'}: ${G.winner(s).map(k => G.sideName(s, k)).join(', ')}`;
+  if (s.over) return resultText(s);
   const T = G.TEAMS[s.current];
   let t = `Ход: ${T.name} (игрок ${G.playerOf(s, s.current) + 1}) · №${s.turn + 1}`;
   const w = pendingWhat(s);

@@ -46,9 +46,8 @@ function render() {
       c.append(d);
     });
     const here = targets.filter(m => m.x === x && m.y === y);
-    const hint = sel !== 'ship' && !withCoin && moves.some(m => m.pid === sel && m.coin && m.kind === 'coin' && m.x === x && m.y === y);
-    if (hint && !here.length) { c.classList.add('hl-hint'); c.insertAdjacentHTML('beforeend', pic(hlImg('coin'), '', 'hl hint')); }
     if (here.length) { const k = V.hlKind(here); c.classList.add('target', 'hl-' + k); c.insertAdjacentHTML('beforeend', pic(hlImg(k), '', 'hl')); }
+    if (V.coinHintAt(moves, x, y, { sel, withCoin })) { c.classList.add('hl-hint'); c.insertAdjacentHTML('beforeend', pic(hlImg('coin'), '', 'hl hint')); }
     c.onclick = () => click(x, y, targets);
     b.append(c);
   }

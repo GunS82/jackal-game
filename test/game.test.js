@@ -193,3 +193,20 @@ test('заголовок: префикс «Ход:» постоянен', () => 
   s = pos({ tiles: { '6,10': { kind: 'horse' } }, pirates: [{ team: 0, x: 6, y: 11 }] }); s = mv(s, m => m.x === 6 && m.y === 10);
   const h = V.headerParts(s); assert.equal(h.prefix, 'Ход:'); assert.match(h.text, /выберите клетку/);
 });
+
+// ---- v0.3.5 ----
+test('бледная метка монеты на корабле поверх обычного хода', () => {
+  const s = G.loadState(fs.readFileSync('test-positions/hl-coin.json', 'utf8')), c = G.classifyMoves(s);
+  assert.ok(c.some(m => m.pid === 0 && m.x === 6 && m.y === 12 && !m.coin && m.kind === 'move'), 'корабль доступен и без монеты');
+  assert.equal(V.coinHintAt(c, 6, 12, { sel: 0 }), true);
+  assert.equal(V.coinHintAt(c, 6, 12, { sel: 0, withCoin: true }), false);
+  assert.equal(V.coinHintAt(c, 6, 10, { sel: 0 }), false);
+});
+test('итог партии: ничья при равном счёте и noMoves', () => {
+  const end = (score, endReason) => ({ ...G.newGame({ seed: 1 }), over: true, score, endReason });
+  assert.match(V.resultText(end([0, 0, 0, 0], 'allCoins')), /Ничья$/);
+  assert.doesNotMatch(V.resultText(end([0, 0, 0, 0], 'allCoins')), /Победа/);
+  assert.match(V.resultText(end([3, 0, 0, 0], 'noMoves')), /Ничья$/);
+  assert.match(V.resultText(end([3, 1, 2, 0], 'majority')), /Победа: Игрок 1/);
+  assert.match(V.headerText(end([0, 0, 0, 0], 'noShips')), /Ничья/);
+});
