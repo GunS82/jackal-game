@@ -43,13 +43,14 @@ test('сервер: создать/войти по коду, ходы прове
     // ход из публичного состояния клиента принимается сервером
     const step = G.legalMoves(sb.state).find(m => m.type === 'move');
     assert.equal((await post(base, 'move', { code: a.code, token: a.token, move: step })).status, 200);
-    const after = await B.next(m => m.state.turn === 1); assert.equal(after.state.current, 2);
+    const before = JSON.stringify(sb.state.pirates); const after = await B.next(m => JSON.stringify(m.state.pirates) !== before); // клетка может дать доп. действие (стрелка, лёд…) — тогда turn ещё 0
+    if (after.state.turn === 1) assert.equal(after.state.current, 2);
     assert.equal(V.onlineBanner(after.state, { player: 1, opponent: after.opponent }).title, G.controllerOf(after.state) === 1 ? 'Ваш ход!' : 'Ход соперника'); // трава может отдать ход соседу
-    assert.equal(V.onlineBanner((await A.next(m => m.state.turn === 1)).state, { player: 0 }).title, G.controllerOf(after.state) === 1 ? 'Ход соперника' : 'Ваш ход!');
+    assert.equal(V.onlineBanner((await A.next(m => JSON.stringify(m.state.pirates) !== before)).state, { player: 0 }).title, G.controllerOf(after.state) === 1 ? 'Ход соперника' : 'Ваш ход!');
     // соперник ушёл (обрыв) → offline; вернулся по коду+токену → online и то же состояние
     B.close(); await A.next(m => m.opponent === 'offline');
-    const B2 = listen(base, b); const back = await B2.next(m => m.opponent === 'online'); assert.equal(back.state.turn, 1);
-    await A.next(m => m.opponent === 'online' && m.state.turn === 1);
+    const B2 = listen(base, b); const back = await B2.next(m => m.opponent === 'online'); assert.deepEqual(back.state, after.state);
+    await A.next(m => m.opponent === 'online' && JSON.stringify(m.state) === JSON.stringify(after.state));
     // явный выход → left
     await post(base, 'leave', { code: a.code, token: b.token }); B2.close();
     assert.equal(V.onlineBanner(null, { player: 0, opponent: (await A.next(m => m.opponent === 'left')).opponent }).title, 'Соперник вышел');
