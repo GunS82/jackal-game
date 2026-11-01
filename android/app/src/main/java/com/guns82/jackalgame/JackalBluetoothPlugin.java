@@ -66,7 +66,7 @@ public class JackalBluetoothPlugin extends Plugin {
 
     @PermissionCallback
     private void startHostPermissionResult(PluginCall call) {
-        if (Build.VERSION.SDK_INT >= 31 && !hasPermission("nearby")) { permissionError(call); return; }
+        if (Build.VERSION.SDK_INT >= 31 && !hasGrantedAlias("nearby")) { permissionError(call); return; }
         BluetoothAdapter adapter = adapter(call);
         if (adapter == null) return;
         try {
@@ -91,7 +91,7 @@ public class JackalBluetoothPlugin extends Plugin {
 
     @PermissionCallback
     private void discoverablePermissionResult(PluginCall call) {
-        if (Build.VERSION.SDK_INT >= 31 && !hasPermission("nearby")) { permissionError(call); return; }
+        if (Build.VERSION.SDK_INT >= 31 && !hasGrantedAlias("nearby")) { permissionError(call); return; }
         BluetoothAdapter adapter = adapter(call);
         if (adapter == null) return;
         try {
@@ -122,7 +122,7 @@ public class JackalBluetoothPlugin extends Plugin {
     @PermissionCallback
     private void discoverDevicesPermissionResult(PluginCall call) {
         String permission = Build.VERSION.SDK_INT >= 31 ? "nearby" : "legacyLocation";
-        if (!hasPermission(permission)) { permissionError(call); return; }
+        if (!hasGrantedAlias(permission)) { permissionError(call); return; }
         BluetoothAdapter adapter = adapter(call);
         if (adapter == null) return;
         try {
@@ -177,7 +177,7 @@ public class JackalBluetoothPlugin extends Plugin {
 
     @PermissionCallback
     private void connectPermissionResult(PluginCall call) {
-        if (Build.VERSION.SDK_INT >= 31 && !hasPermission("nearby")) { permissionError(call); return; }
+        if (Build.VERSION.SDK_INT >= 31 && !hasGrantedAlias("nearby")) { permissionError(call); return; }
         BluetoothAdapter adapter = adapter(call);
         if (adapter == null) return;
         String address = call.getString("address");
@@ -329,7 +329,7 @@ public class JackalBluetoothPlugin extends Plugin {
         return adapter;
     }
 
-    private boolean hasPermission(String alias) {
+    private boolean hasGrantedAlias(String alias) {
         return getPermissionState(alias) == com.getcapacitor.PermissionState.GRANTED;
     }
 
