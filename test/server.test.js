@@ -44,8 +44,8 @@ test('сервер: создать/войти по коду, ходы прове
     const step = G.legalMoves(sb.state).find(m => m.type === 'move');
     assert.equal((await post(base, 'move', { code: a.code, token: a.token, move: step })).status, 200);
     const after = await B.next(m => m.state.turn === 1); assert.equal(after.state.current, 2);
-    assert.equal(V.onlineBanner(after.state, { player: 1, opponent: after.opponent }).title, 'Ваш ход!');
-    assert.equal(V.onlineBanner((await A.next(m => m.state.turn === 1)).state, { player: 0 }).title, 'Ход соперника');
+    assert.equal(V.onlineBanner(after.state, { player: 1, opponent: after.opponent }).title, G.controllerOf(after.state) === 1 ? 'Ваш ход!' : 'Ход соперника'); // трава может отдать ход соседу
+    assert.equal(V.onlineBanner((await A.next(m => m.state.turn === 1)).state, { player: 0 }).title, G.controllerOf(after.state) === 1 ? 'Ход соперника' : 'Ваш ход!');
     // соперник ушёл (обрыв) → offline; вернулся по коду+токену → online и то же состояние
     B.close(); await A.next(m => m.opponent === 'offline');
     const B2 = listen(base, b); const back = await B2.next(m => m.opponent === 'online'); assert.equal(back.state.turn, 1);
