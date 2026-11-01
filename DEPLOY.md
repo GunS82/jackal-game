@@ -50,7 +50,7 @@ npm run sim
 
 ## Android APK
 
-В проекте есть Capacitor-обёртка Android 8+ (API 26+). Для локальной сборки нужны Android Studio/SDK, JDK 17 и Node.js 22+:
+В проекте есть Capacitor-обёртка Android 8+ (API 26+). Для локальной сборки нужны Android Studio/SDK, JDK 21 и Node.js 22+:
 
 ```sh
 SERVER_URL=https://jackal-game-server.<ваш-subdomain>.workers.dev npm run build:android

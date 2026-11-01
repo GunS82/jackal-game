@@ -68,7 +68,7 @@ npm run deploy:cf
 
 ## Android
 
-Нужны Android Studio/SDK и JDK 17. Минимальная версия приложения — Android 8 (API 26). Скопировать файлы клиента в Capacitor и собрать debug APK:
+Нужны Android Studio/SDK и JDK 21. Минимальная версия приложения — Android 8 (API 26). Скопировать файлы клиента в Capacitor и собрать debug APK:
 
 ```sh
 SERVER_URL=https://jackal-game-server.<ваш-subdomain>.workers.dev npm run build:android
