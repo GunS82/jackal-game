@@ -113,6 +113,15 @@ export function onlineBanner(s, { player, connected = true, opponent = 'online',
 // Нужно ли спрашивать подтверждение, прежде чем покинуть онлайн-партию (и отправить leave).
 export function needsLeaveConfirm(net, s) { return !!net && !net.gone && !!s && !s.over; }
 
+// Приоритет аппаратной кнопки Android: закрыть вложенные элементы до выхода из приложения.
+export function androidBackAction({ dialog = null, plate = false, online = false } = {}) {
+  if (dialog === 'online') return 'close-online';
+  if (dialog === 'menu') return 'close-menu';
+  if (plate) return 'close-plate';
+  if (online) return 'confirm-online-leave';
+  return 'minimize';
+}
+
 // За кого играет эта вкладка онлайн (1v1: игрок 1 — Белые, игрок 2 — Чёрные).
 const GEN = { 'Белые': 'Белых', 'Чёрные': 'Чёрных', 'Жёлтые': 'Жёлтых', 'Красные': 'Красных' };
 export function youAreText(s, player) { const t = G.teamsOfPlayer(s, player)[0]; return t == null ? '' : `Вы играете за ${GEN[G.TEAMS[t].name] ?? G.TEAMS[t].name}`; }
@@ -220,10 +229,10 @@ export function logEntries(s, k = 5) {
   }));
 }
 
-// v0.5.18: бесплатный хостинг — плашка «сервер просыпается».
-export const FREE_NOTE = 'Тестовая версия. Игра работает на бесплатных сервисах, поэтому первый запуск может занять около минуты, пока просыпается сервер. Если в игре никого нет 15 минут, сервер засыпает и незаконченные партии не сохраняются.';
-export const FREE_SHORT = 'Тестовая версия на бесплатном сервере: первый вход — до минуты (сервер просыпается); после 15 минут без игроков незаконченные партии не сохраняются.';
+// v0.5.19: бесплатный Cloudflare Worker — статус сервера и сроки очистки комнат.
+export const FREE_NOTE = 'Тестовая версия на Cloudflare Workers. Неактивные комнаты удаляются через 24 часа, законченные партии — через час.';
+export const FREE_SHORT = 'Тестовая версия на бесплатном Cloudflare Workers. Неактивные комнаты удаляются через 24 часа, законченные партии — через час.';
 export function wakeStatus(phase, sec = 0) {
   const t = `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
-  return phase === 'wait' ? `Будим сервер… ${t}` : phase === 'ok' ? 'Сервер готов — можно играть онлайн' : phase === 'fail' ? 'Сервер пока не ответил. Попробуйте ещё раз — иногда он просыпается дольше.' : '';
+  return phase === 'wait' ? `Проверяем сервер… ${t}` : phase === 'ok' ? 'Сервер готов — можно играть онлайн' : phase === 'fail' ? 'Сервер не ответил. Попробуйте ещё раз позже.' : '';
 }

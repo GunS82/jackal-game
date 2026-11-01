@@ -1,0 +1,13 @@
+{
+  "appId": "com.guns82.jackalgame",
+  "appName": "Шакал",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "App": {
+      "disableBackButtonHandler": false
+    }
+  }
+}
