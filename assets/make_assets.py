@@ -7,7 +7,7 @@ def tile(name,body,bg=P):
 def txt(t,y=58,sz=34,c=E): return f'<text x="50" y="{y}" font-family="Georgia,serif" font-size="{sz}" font-weight="bold" text-anchor="middle" fill="{c}">{t}</text>'
 def S(c=E): return f'fill="none" stroke="{c}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"'
 st=S()
-tile('closed',f'<path d="M50 85 Q48 60 52 40" {st}/><path d="M52 40 Q35 30 22 40 M52 40 Q66 28 80 38 M52 40 Q40 20 30 18 M52 40 Q62 20 74 20" {S("#2f6b3a")}/>',bg='#c9b27a')
+tile('closed','<path d="M30 70 q20 -10 40 0" fill="none" stroke="#8f7a45" stroke-width="3" stroke-linecap="round"/><path d="M38 58 q12 -6 24 0" fill="none" stroke="#8f7a45" stroke-width="3" stroke-linecap="round"/>',bg='#b8a26a')
 tile('empty','<circle cx="30" cy="70" r="3" fill="#b59a66"/><circle cx="65" cy="35" r="2" fill="#b59a66"/>')
 tile('sea','',bg='#3a9aa6')
 tile('horse',f'<path d="M35 82 L38 55 Q30 45 38 30 L50 20 L52 30 Q68 34 66 50 L58 52 L62 82 Z" fill="{E}"/>')
