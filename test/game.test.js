@@ -106,7 +106,7 @@ test('пьяный пират не даёт закончить партию (1v1
   s = mv(s, m => m.x === 6 && m.y === 10); assert.equal(s.over, false); assert.equal(s.current, 0); assert.equal(s.pirates[0].x, 6);
   const { s: g, n } = simulate(1, '1v1', 3000); assert.ok(n > 207 || g.endReason !== 'noMoves');
 });
-test('ничья noMoves: ходов нет ни у кого и никто не пьян', () => {
+test('noMoves: ходов нет ни у кого и никто не пьян; при 0:0 — ничья', () => {
   let s = pos({ mode: '1v1', options: { houseCrocDeath: true }, tiles: { '3,3': { kind: 'trap' }, '8,8': { kind: 'trap' }, '5,5': { coins: 1 }, '6,10': { kind: 'ice' }, '6,9': { kind: 'croc' } }, pirates: [{ team: 0, x: 6, y: 11 }, { team: 0, x: 8, y: 8, trapped: true }, { team: 2, x: 3, y: 3, trapped: true }] });
   s = mv(s, m => m.x === 6 && m.y === 10); assert.equal(s.endReason, 'noMoves'); assert.deepEqual(G.winner(s), [0, 1]);
 });
@@ -202,11 +202,14 @@ test('бледная метка монеты на корабле поверх о
   assert.equal(V.coinHintAt(c, 6, 12, { sel: 0, withCoin: true }), false);
   assert.equal(V.coinHintAt(c, 6, 10, { sel: 0 }), false);
 });
-test('итог партии: ничья при равном счёте и noMoves', () => {
+test('итог партии: ничья только при равном счёте; noMoves — побеждает тот, у кого больше монет', () => {
   const end = (score, endReason) => ({ ...G.newGame({ seed: 1 }), over: true, score, endReason });
   assert.match(V.resultText(end([0, 0, 0, 0], 'allCoins')), /Ничья$/);
   assert.doesNotMatch(V.resultText(end([0, 0, 0, 0], 'allCoins')), /Победа/);
-  assert.match(V.resultText(end([3, 0, 0, 0], 'noMoves')), /Ничья$/);
+  assert.match(V.resultText(end([3, 0, 0, 0], 'noMoves')), /\(ходов больше нет\)\. Победа: Игрок 1/);
+  const e1 = { ...G.newGame({ seed: 1, mode: '1v1' }), over: true, score: [0, 0, 13, 0], endReason: 'noMoves' };
+  assert.deepEqual(G.winner(e1), [1]); assert.match(V.resultText(e1), /ходов больше нет\)\. Победа: Игрок 2 \(Чёрные\)$/);
+  const e2 = { ...e1, score: [5, 0, 5, 0] }; assert.deepEqual(G.winner(e2), [0, 1]); assert.match(V.resultText(e2), /ходов больше нет\)\. Ничья$/);
   assert.match(V.resultText(end([3, 1, 2, 0], 'majority')), /Победа: Игрок 1/);
   assert.match(V.headerText(end([0, 0, 0, 0], 'noShips')), /Ничья/);
 });

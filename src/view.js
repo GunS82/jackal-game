@@ -30,10 +30,10 @@ export function hlKind(here) {
   return has('coin') ? 'coin' : has('coinLost') ? 'coin-lost' : has('death') ? 'death' : 'move';
 }
 
-// Итог партии: ничья при равном счёте лидеров (в т.ч. 0:0) или при endReason noMoves.
+// Итог партии: победитель — у кого больше монет (и при noMoves — «ходов больше нет»); ничья только при равном счёте лидеров (в т.ч. 0:0).
 export function resultText(s) {
   const w = G.winner(s), why = `Игра окончена (${G.END_REASONS[s.endReason] ?? ''}).`;
-  return w.length === 1 && s.endReason !== 'noMoves' ? `${why} Победа: ${G.sideName(s, w[0])}` : `${why} Ничья`;
+  return w.length === 1 ? `${why} Победа: ${G.sideName(s, w[0])}` : `${why} Ничья`;
 }
 
 // Бледная метка «можно отвезти монету» на клетке (x,y) — поверх обычной подсветки.

@@ -28,7 +28,7 @@
 }
 ```
 - `options` — настройки партии: `{ "houseCrocDeath": false, "archipelagoMissionary": false }` (houseCrocDeath: true — домашнее правило: цепочка на открытого крокодила убивает; archipelagoMissionary: true — правило «Архипелага»: враги, кроме Пятницы, не встают на клетку миссионера, вынужденный вход туда — гибель). Необязательно; неизвестные ключи и не-boolean значения отклоняются.
-- `over`, `endReason` — конец партии и причина: `majority` | `allCoins` | `noPirates` | `noMoves` (ничья) | `noShips` (зарезервировано).
+- `over`, `endReason` — конец партии и причина: `majority` | `allCoins` | `noPirates` | `noMoves` (ходов больше нет: побеждает тот, у кого больше монет; ничья при равенстве) | `noShips` (зарезервировано).
 - `pending.visits` — счётчик заходов в клетки за текущий ход (защита от циклов).
 - `moves` — журнал ходов `[{n, team, type, pid, x, y, via, coin}]`, `log` — текстовый журнал, `pending` — незавершённый ход по стрелке/коню `{pid, coin, origin, visits}` (обычно null).
 - `kind`: empty, arrow1, arrow1d, arrow2, arrow2d, arrow3, arrow4, arrow4d (или `arrow` + обязательный `dirs`), horse, spin2..spin5, ice, trap, croc, ogre, fort, abor, chest1..chest5, plane, balloon, cannon, barrel, rum1..rum3.

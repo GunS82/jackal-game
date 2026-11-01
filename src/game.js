@@ -364,7 +364,7 @@ export function coinsLeft(s) {
   return n;
 }
 
-export const END_REASONS = { majority: 'больше половины всех монет', allCoins: 'все монеты разыграны', noPirates: 'не осталось живых пиратов', noMoves: 'ни у кого нет ходов — ничья', noShips: 'не осталось кораблей' };
+export const END_REASONS = { majority: 'больше половины всех монет', allCoins: 'все монеты разыграны', noPirates: 'не осталось живых пиратов', noMoves: 'ходов больше нет', noShips: 'не осталось кораблей' };
 export const TOTAL_COINS = 37 + TREASURE_VALUE; // 37 монет в сундуках + сокровище галеона (3)
 function finish(s, reason) { s.over = true; s.endReason = reason; s.pending = null; msg(s, '🏁 ' + END_REASONS[reason]); }
 // Пират временно пропускает ход (бочонок), значит позже у него появятся ходы.
@@ -400,7 +400,6 @@ export function sideScores(s) {
 }
 export function winner(s) {
   if (!s.over) return null;
-  if (s.endReason === 'noMoves') return Object.keys(sideScores(s)).map(Number); // ничья
   const sc = sideScores(s); const best = Math.max(...Object.values(sc));
   return Object.keys(sc).filter(k => sc[k] === best).map(Number);
 }
