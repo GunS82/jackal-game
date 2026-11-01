@@ -1,6 +1,6 @@
 import * as G from './game.js';
 import * as V from './view.js';
-import { ASSETS, ARROW_GLYPH, ROLE_BADGE, tileImg, pirateImg, shipImg, coinImg, hlImg } from './assets.js';
+import { ASSETS, ARROW_GLYPH, ROLE_BADGE, tileImg, pirateImg, shipImg, coinImg, treasureImg, hlImg } from './assets.js';
 const tileName = t => !t.open ? 'закрытая клетка' : t.kind === 'arrow' ? 'стрелка ' + t.dirs.map(d => ARROW_GLYPH[d.join(',')]).join('') : (t.kind === 'plane' && t.used ? 'пусто' : ASSETS[t.kind]?.label ?? t.kind) + (t.coins ? `, монет: ${t.coins}` : '') + (t.treasure ? ', сокровище (3 монеты)' : '');
 const $ = s => document.querySelector(s);
 let state = null, sel = null, withCoin = false, notice = '';
@@ -23,7 +23,7 @@ function tileHTML(t) {
   const lab = t.kind === 'arrow' ? '' : (t.kind === 'plane' && t.used ? 'пусто' : ASSETS[t.kind]?.label ?? t.kind);
   if (lab && !tileImg(t)) h += `<small>${lab}</small>`; // подпись только без картинки
   if (t.coins) h += `<b class="coins">${pic(coinImg, '🪙', 'ci')}${t.coins}</b>`;
-  if (t.treasure) h += `<b class="treasure" title="сокровище">💰${t.treasure > 1 ? t.treasure : ''}</b>`;
+  if (t.treasure) h += `<b class="treasure" title="сокровище">${pic(treasureImg, '💰', 'ti')}${t.treasure > 1 ? t.treasure : ''}</b>`;
   return h;
 }
 const myTurn = () => me === 'all' || G.controllerOf(state) === +me;
@@ -43,8 +43,8 @@ function render() {
       const d = document.createElement('i');
       const mark = V.coinMark(s, p, moves, { sel, withCoin, myTurn: myTurn() }), coin = mark === 'coin' || mark === 'treasure', tre = mark === 'treasure';
       d.className = `pirate n${ps.length} i${i}` + (p.id === sel ? ' sel' : '') + (p.trapped ? ' trapped' : '') + (p.inCave ? ' incave' : '');
-      d.title = G.pieceName(s, p) + (coin ? (tre ? ', несёт сокровище' : ', несёт монету') : '') + (p.trapped ? ', в капкане' : '') + (p.inCave ? ', в пещере' : '') + (mark === 'can' ? ', может взять монету' : '');
-      d.innerHTML = pic(pirateImg(p.team), '●', 'pi') + (coin ? (tre ? '<b class="pcoin ptre">💰</b>' : pic(coinImg, '🪙', 'pcoin')) : mark === 'can' ? pic(coinImg, '🪙', 'pcoin can') : '') + (p.spin ? `<em>${p.spin}</em>` : '') + (p.role ? `<b class="role">${ROLE_BADGE[p.role]}</b>` : '');
+      d.title = G.pieceName(s, p) + (coin ? (tre ? ', несёт сокровище' : ', несёт монету') : '') + (p.trapped ? ', в капкане' : '') + (p.inCave ? ', в пещере' : '') + (mark === 'can' ? ', может взять монету' : mark === 'canTreasure' ? ', может взять сокровище' : '');
+      d.innerHTML = pic(pirateImg(p.team), '●', 'pi') + (coin ? (tre ? pic(treasureImg, '💰', 'pcoin ptre') : pic(coinImg, '🪙', 'pcoin')) : mark === 'can' ? pic(coinImg, '🪙', 'pcoin can') : mark === 'canTreasure' ? pic(treasureImg, '💰', 'pcoin ptre can') : '') + (p.spin ? `<em>${p.spin}</em>` : '') + (p.role ? `<b class="role">${ROLE_BADGE[p.role]}</b>` : '');
       c.append(d);
     });
     const here = targets.filter(m => m.x === x && m.y === y);

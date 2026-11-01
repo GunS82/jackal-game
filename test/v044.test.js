@@ -3,12 +3,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as G from '../src/game.js';
 import * as V from '../src/view.js';
+import fs from 'node:fs';
 
 test('coinMark: can — стоит на монете своего хода; coin/treasure — несёт; иначе null', () => {
   const s = G.loadState({ mode: '1v1', tiles: { '5,5': { coins: 2 }, '7,7': { treasure: 1 }, '3,3': { coins: 1 } }, pirates: [{ team: 0, x: 5, y: 5 }, { team: 0, x: 7, y: 7 }, { team: 0, x: 9, y: 9 }, { team: 2, x: 3, y: 3 }] });
   const ms = G.legalMoves(s), P = (x, y) => s.pirates.find(p => p.alive && p.x === x && p.y === y);
   assert.equal(V.coinMark(s, P(5, 5), ms), 'can');
-  assert.equal(V.coinMark(s, P(7, 7), ms), 'can', 'сокровище тоже можно взять');
+  assert.equal(V.coinMark(s, P(7, 7), ms), 'canTreasure', 'сокровище — бледная treasure.svg');
   assert.equal(V.coinMark(s, P(9, 9), ms), null, 'монет нет');
   assert.equal(V.coinMark(s, P(3, 3), ms), null, 'пират соперника');
   assert.equal(V.coinMark(s, P(5, 5), ms, { myTurn: false }), null, 'не мой ход');
@@ -20,5 +21,16 @@ test('coinMark: несущий груз (вертушка) — яркая мет
   const ms = G.legalMoves(s);
   assert.equal(V.coinMark(s, s.pirates[0], ms), 'coin');
   const fort = s.pirates.find(p => p.x === 7);
-  assert.equal(V.coinMark(s, fort, ms), ms.some(m => m.pid === fort.id && m.coin) ? 'can' : null);
+  assert.equal(V.coinMark(s, fort, ms), null);
+});
+
+test('coinMark: монета и сокровище на одной клетке — бледная монета (can)', () => {
+  const s = G.loadState({ tiles: { '5,5': { coins: 1, treasure: 1 } }, pirates: [{ team: 0, x: 5, y: 5 }] });
+  assert.equal(V.coinMark(s, s.pirates[0], G.legalMoves(s)), 'can');
+});
+
+test('v045-fort-coin: пират в крепости с монетой — взять нельзя, метки нет', () => {
+  const s = G.loadState(JSON.parse(fs.readFileSync(new URL('../test-positions/v045-fort-coin.json', import.meta.url))));
+  const p = s.pirates.find(p => p.alive && p.x === 5 && p.y === 5), ms = G.legalMoves(s);
+  assert.ok(!ms.some(m => m.pid === p.id && m.coin)); assert.equal(V.coinMark(s, p, ms), null);
 });

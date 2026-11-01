@@ -35,7 +35,7 @@ nav button:disabled{opacity:.45;cursor:not-allowed}nav button[aria-pressed=true]
 .cell .pirate .role{position:absolute;left:-12%;top:-12%;font-size:.5em;line-height:1;z-index:3}
 .cell .pirate.incave{opacity:.45;filter:grayscale(.6)}
 .cell .treasure{position:absolute;right:2%;top:2%;font-size:.55em;z-index:1}
-.cell .pirate .ptre{font-size:.55em;line-height:1}
+.cell .pirate .ptre{font-size:.55em;line-height:1}.pirate img.ptre{position:absolute;right:-12%;bottom:-12%;width:50%;height:50%}.cell .treasure img.ti{width:1.4em;height:1.4em;vertical-align:middle}
 #rumBtn{min-width:8.5em}
 
 .pirate .pcoin.can{position:absolute;right:-12%;bottom:-12%;width:50%;height:50%;opacity:.45}

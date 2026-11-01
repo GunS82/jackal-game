@@ -78,11 +78,12 @@ export function pirateHasCoin(s, p, { sel = null, withCoin = false } = {}) {
   return p.id === sel && withCoin;
 }
 
-// Метка груза у фишки пирата: 'treasure' | 'coin' — несёт (яркая метка); 'can' — стоит на монетах/сокровище и может взять (бледная монета); null — ничего.
+// Метка груза у фишки пирата: 'treasure' | 'coin' — несёт (яркая метка); 'can' — может взять монету (бледная coin.svg); 'canTreasure' — только сокровище (бледная treasure.svg); null — ничего.
 export function coinMark(s, p, moves, { sel = null, withCoin = false, myTurn = true } = {}) {
   if (pirateHasCoin(s, p, { sel, withCoin })) return p.carry === G.TREASURE_VALUE || (p.id === sel && withCoin === 'T') || (s.pending?.pid === p.id && s.pending.treasure) ? 'treasure' : 'coin';
   if (!myTurn || s.over || s.pending || p.team !== s.current) return null;
-  return moves.some(m => m.pid === p.id && m.type === 'move' && m.coin) ? 'can' : null;
+  const mine = moves.filter(m => m.pid === p.id && m.type === 'move' && m.coin);
+  return mine.some(m => !m.treasure) ? 'can' : mine.length ? 'canTreasure' : null; // бледная монета / бледное сокровище
 }
 
 // Все кнопки всегда на месте; возвращает {disabled, label, pressed}.

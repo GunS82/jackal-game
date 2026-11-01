@@ -46,7 +46,7 @@ export function teamsOfPlayer(s, pl) { return activeTeams(s.mode).filter(t => pl
 export function allied(state, a, b) { return a === b || (state.mode !== '4p' && state.mode !== '1v1' && a % 2 === b % 2); }
 export function sideOf(state, team) { return state.mode === '4p' ? team : state.mode === '1v1' ? team / 2 : team % 2; }
 
-export const DEFAULT_OPTIONS = { houseCrocDeath: false, archipelagoMissionary: false }; // archipelagoMissionary — правило «Архипелага»: враги не встают на клетку миссионера; // houseCrocDeath — домашнее правило: цепочка на открытого крокодила убивает
+export const DEFAULT_OPTIONS = { houseCrocDeath: false, archipelagoMissionary: false }; // archipelagoMissionary — правило «Архипелага»: враги не встают на клетку миссионера; houseCrocDeath — домашнее правило: цепочка на открытого крокодила убивает
 export function newGame({ mode = '2p', seed = Date.now(), options = {} } = {}) {
   const r = rng(seed);
   const deck = [];
@@ -124,7 +124,8 @@ export function pirateMoves(s, p) {
   const calm = here(s, p.x, p.y).some(q => q !== p && q.role === 'missionary'); // рядом с миссионером атаковать нельзя
   for (const [x, y, via] of landTargets(s, p)) {
     const list = s.pending ? [[s.pending.coin, !!s.pending.treasure]] : p.carry ? (via === 'spin' ? [[true, p.carry === TREASURE_VALUE]] : [[true, p.carry === TREASURE_VALUE], [false]]) : [[false]];
-    if (!s.pending && !p.carry && via !== 'spin' && p.role !== 'missionary') { if (cell.coins > 0) list.push([true, false]); if (cell.treasure > 0) list.push([true, true]); }
+    // в крепости/джунглях груза быть не может — подобрать нельзя
+    if (!s.pending && !p.carry && via !== 'spin' && p.role !== 'missionary' && !['fort', 'abor', 'jungle'].includes(cell.kind)) { if (cell.coins > 0) list.push([true, false]); if (cell.treasure > 0) list.push([true, true]); }
     for (const [coin, treasure] of list) {
       if (isSea(x, y)) {
         const sh = shipAt(s, x, y);

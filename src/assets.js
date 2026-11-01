@@ -55,6 +55,7 @@ export function tileImg(t) {
 export const pirateImg = team => `assets/pieces/pirate-${TEAM_COLOR[team]}.svg`;
 export const shipImg = team => `assets/pieces/ship-${TEAM_COLOR[team]}.svg`;
 export const coinImg = 'assets/pieces/coin.svg';
+export const treasureImg = 'assets/pieces/treasure.svg';
 export const hlImg = kind => `assets/ui/hl-${kind}.svg`; // слои подсветки ходов: move / death / coin
 // Отдельных фишек персонажей у Дизайнера нет: фишка цвета команды + значок роли.
 export const ROLE_BADGE = { bengunn: '🧔', friday: '🧑', missionary: '🙏', exmissionary: '✝' };
