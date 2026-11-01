@@ -1,6 +1,7 @@
 // v0.5: сервер онлайн-игры — комнаты, проверка ходов, рассылка, переподключение (два клиента)
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import * as G from '../src/game.js';
 import * as V from '../src/view.js';
 import { createServer } from '../server/server.js';
@@ -197,4 +198,37 @@ test('v0.5.3: SSE сразу отдаёт retry: 1000 и данные — без
     assert.match(txt, /^retry: 1000/); assert.ok(Date.now() - t0 < 1000); assert.equal(r.headers.get('x-accel-buffering'), 'no');
     rd.cancel();
   } finally { srv.closeAllConnections(); srv.close(); }
+});
+
+test('v0.5.18: /health, CORS для клиента на GitHub Pages, preflight', async () => {
+  const { srv, base } = await start();
+  try {
+    let r = await fetch(base + '/health'); assert.equal(r.status, 200); assert.equal((await r.json()).ok, true);
+    r = await fetch(base + '/health', { method: 'HEAD' }); assert.equal(r.status, 200);
+    r = await fetch(base + '/api/create', { method: 'OPTIONS', headers: { origin: 'https://gennady.github.io', 'access-control-request-method': 'POST', 'access-control-request-headers': 'content-type' } });
+    assert.equal(r.status, 204); assert.equal(r.headers.get('access-control-allow-origin'), '*'); assert.match(r.headers.get('access-control-allow-headers'), /content-type/);
+    r = await fetch(base + '/api/create', { method: 'POST', headers: { origin: 'https://gennady.github.io', 'content-type': 'application/json' }, body: '{}' });
+    assert.equal(r.status, 200); assert.equal(r.headers.get('access-control-allow-origin'), '*');
+    const { code, token } = await r.json();
+    const ctl = new AbortController(); r = await fetch(`${base}/api/events?code=${code}&token=${token}`, { headers: { origin: 'https://gennady.github.io' }, signal: ctl.signal });
+    assert.equal(r.headers.get('access-control-allow-origin'), '*', 'EventSource с другого сайта'); ctl.abort();
+  } finally { srv.closeAllConnections?.(); srv.close(); }
+});
+
+test('v0.5.18: ALLOWED_ORIGINS — только перечисленные сайты', async () => {
+  const srv = createServer({ origins: 'https://gennady.github.io/' }); await new Promise(r => srv.listen(0, r)); const base = `http://127.0.0.1:${srv.address().port}`;
+  try {
+    let r = await fetch(base + '/health', { headers: { origin: 'https://gennady.github.io' } }); assert.equal(r.headers.get('access-control-allow-origin'), 'https://gennady.github.io');
+    r = await fetch(base + '/health', { headers: { origin: 'https://evil.example' } }); assert.equal(r.headers.get('access-control-allow-origin'), null);
+  } finally { srv.close(); }
+});
+
+test('v0.5.18: сервер слушает process.env.PORT на 0.0.0.0; render.yaml и workflow Pages', () => {
+  const src = fs.readFileSync(new URL('../server/server.js', import.meta.url), 'utf8');
+  assert.match(src, /\+process\.env\.PORT \|\| 8090/); assert.match(src, /listen\(port, '0\.0\.0\.0'/);
+  const y = fs.readFileSync(new URL('../render.yaml', import.meta.url), 'utf8');
+  for (const k of ['plan: free', 'runtime: node', 'buildCommand: npm install', 'startCommand: npm run server', 'healthCheckPath: /health']) assert.ok(y.includes(k), k);
+  const w = fs.readFileSync(new URL('../.github/workflows/pages.yml', import.meta.url), 'utf8');
+  assert.match(w, /actions\/deploy-pages/); assert.match(w, /vars\.SERVER_URL/);
+  assert.ok(fs.existsSync(new URL('../DEPLOY.md', import.meta.url)));
 });

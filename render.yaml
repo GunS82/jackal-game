@@ -1,0 +1,18 @@
+# Render Blueprint: бесплатный Node-сервер «Шакала» (комнаты онлайн-игры + та же статика).
+# Free: засыпает после 15 минут без запросов, просыпается ~1 минуту; диск временный — комнаты живут в памяти.
+services:
+  - type: web
+    name: jackal-server
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm install
+    startCommand: npm run server
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      # Через запятую, например https://gennady.github.io ; * — любой сайт (по умолчанию).
+      - key: ALLOWED_ORIGINS
+        value: "*"

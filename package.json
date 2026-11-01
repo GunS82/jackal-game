@@ -1,1 +1,1 @@
-{"name": "jackal-game", "version": "0.5.17", "type": "module", "scripts": {"test": "node --test test/*.test.js", "sim": "node test/sim.js", "start": "npx -y http-server -p 8080 .", "server": "node server/server.js"}}
+{"name": "jackal-game", "version": "0.5.18", "type": "module", "scripts": {"test": "node --test test/*.test.js", "sim": "node test/sim.js", "start": "npx -y http-server -p 8080 .", "server": "node server/server.js"}, "engines": {"node": ">=18"}}

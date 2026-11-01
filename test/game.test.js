@@ -510,3 +510,22 @@ test('v0.5.17: точка команды в журнале — контур 1.5p
   const rules = [...css.matchAll(/#log \.dot\{([^}]*)\}/g)].map(m => m[1]).join(';');
   assert.match(rules, /border:1\.5px solid #5a3b1e/);
 });
+
+test('v0.5.18: адрес сервера — тот же сайт, на GitHub Pages / из файла — Render, ?server= важнее', async () => {
+  const { serverUrlFor } = await import('../src/config.js');
+  const R = 'https://jackal-server.onrender.com';
+  assert.equal(serverUrlFor({ protocol: 'http:', hostname: 'localhost', origin: 'http://localhost:8090' }), '');
+  assert.equal(serverUrlFor({ protocol: 'https:', hostname: 'jackal-server.onrender.com' }), '');
+  assert.equal(serverUrlFor({ protocol: 'https:', hostname: 'gennady.github.io' }), R);
+  assert.equal(serverUrlFor({ protocol: 'file:', hostname: '' }), R);
+  assert.equal(serverUrlFor({ protocol: 'https:', hostname: 'gennady.github.io' }, { override: 'http://x:1/' }), 'http://x:1');
+});
+
+test('v0.5.18: плашка «Тестовая версия» и заметка в онлайн-меню', () => {
+  const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  assert.match(html, /<aside id="wake"[^>]*hidden>/); assert.ok(html.includes('первый запуск может занять около минуты'));
+  assert.ok(html.includes('незаконченные партии не сохраняются')); assert.match(html, /id="freeNote"/);
+  assert.match(V.FREE_NOTE, /^Тестовая версия/); assert.equal(V.wakeStatus('wait', 75), 'Будим сервер… 1:15');
+  const ui = fs.readFileSync(new URL('../src/ui.js', import.meta.url), 'utf8');
+  assert.match(ui, /Net\.wake\(/); assert.match(ui, /await needServer\(\); if \(!goLocal\(\)\) return; const sess = await Net\.create/);
+});

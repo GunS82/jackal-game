@@ -110,3 +110,11 @@ nav button:disabled{opacity:.45;cursor:not-allowed}nav button[aria-pressed=true]
 #log .dot{flex:none;width:8px;height:8px;border-radius:50%;background:var(--team);box-shadow:0 0 0 1px #0008;align-self:center}
 #log li:first-child{opacity:1}#log li+li{opacity:.8}
 #log .dot{border:1.5px solid #5a3b1e;box-sizing:content-box;box-shadow:none}
+
+/* v0.5.18: плашка «сервер просыпается» — старая пиратская карта */
+#wake{position:fixed;z-index:50;left:50%;bottom:12px;transform:translateX(-50%);box-sizing:border-box;width:min(520px,94vw);padding:10px 34px 10px 14px;font:13px/1.45 Georgia,"Times New Roman",serif;color:#3b2a14;background:#f3e3bf radial-gradient(ellipse at 30% 20%,#fbf1d6,#e8d2a0 70%,#d9bd85);border:2px solid #5a3b1e;border-radius:8px;box-shadow:0 4px 14px #000a,inset 0 0 18px #a0784055}
+#wake h3{margin:0 0 4px;font:italic 700 14px Georgia,serif;letter-spacing:.1em;text-transform:uppercase;color:#5a3b1e}
+#wake p{margin:0 0 4px}#wake .ws{font-weight:bold;color:#7a2e12}#wake[data-phase=ok] .ws{color:#2f6b2a}#wake .hot{font-size:11px;opacity:.75;margin:0}
+#wake #wakeClose{position:absolute;right:6px;top:4px;border:0;background:none;font-size:20px;line-height:1;color:#5a3b1e;cursor:pointer;padding:2px 6px}
+#wake #wakeRetry{margin:2px 0 6px;padding:4px 12px;font:600 13px Georgia,serif;color:#f7ecd4;background:#5a3b1e;border:1px solid #3b2a14;border-radius:5px;cursor:pointer}
+.freenote{margin:0 0 8px;padding:6px 8px;font:12px/1.4 Georgia,serif;color:#5a3b1e;background:#f3e3bf;border:1px dashed #5a3b1e;border-radius:5px}

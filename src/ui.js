@@ -1,6 +1,7 @@
 import * as G from './game.js';
 import * as V from './view.js';
 import * as Net from './net.js';
+import { IS_REMOTE } from './config.js';
 import { ASSETS, ARROW_GLYPH, ROLE_BADGE, tileImg, pirateImg, pieceImg, shipImg, coinImg, treasureImg, hlImg } from './assets.js';
 const tileName = t => !t.open ? 'закрытая клетка' : t.kind === 'arrow' ? 'стрелка ' + t.dirs.map(d => ARROW_GLYPH[d.join(',')]).join('') : (t.kind === 'plane' && t.used ? 'пусто' : ASSETS[t.kind]?.label ?? t.kind) + (t.coins ? `, монет: ${t.coins}` : '') + (t.treasure ? ', сокровище (3 монеты)' : '');
 const $ = s => document.querySelector(s);
@@ -73,6 +74,7 @@ function render() {
     $('#log').innerHTML = '<h3>Журнал</h3><ol>' + es.map(e => `<li>${e.n ? `<span class="ln">№${e.n}</span>` : ''}${e.team != null ? `<i class="dot" style="--team:${G.TEAMS[e.team].color}"></i>` : ''}<span class="lt">${esc(e.text)}</span></li>`).join('') + '</ol>'; }
   if (s.pending && (!s.pending.type || s.pending.type === 'cave') && myTurn() && sel !== s.pending.pid) { sel = s.pending.pid; withCoin = s.pending.treasure ? 'T' : s.pending.coin; return render(); }
   const ya = $('#youAre'); ya.hidden = !net; if (net) { ya.textContent = V.youAreText(s, net.sess.player); ya.style.borderColor = G.TEAMS[G.teamsOfPlayer(s, net.sess.player)[0]]?.color ?? ''; }
+  $('#freeNote').textContent = V.FREE_SHORT;
   $('#fileHelp').hidden = !V.showFileHelp({ online: !!net, me });
   if (plate && myTurn()) {
     const pl = V.platePlacement({ x: plate.x, n: plate.pids.length }), d = document.createElement('div');
@@ -162,11 +164,27 @@ $('#loadBtn').onclick = () => {
   if (fileConfirmed) $('#file').click();
 };
 $('#file').onchange = async e => { const f = e.target.files[0]; if (!f) return; try { if (!goLocal(fileConfirmed)) return; state = G.loadState(await f.text()); sel = null; render(); } catch (err) { alert(err.message); } e.target.value = ''; };
+// v0.5.18: сервер на бесплатном тарифе спит — плашка, пока он не ответит на /health.
+let awake = null, waking = null;
+function wakeServer() {
+  if (awake) return Promise.resolve(true); if (waking) return waking;
+  const el = $('#wake'), st = $('#wakeStatus'), again = $('#wakeRetry'); let t0 = Date.now(), tick = null;
+  const show = phase => { st.textContent = V.wakeStatus(phase, Math.round((Date.now() - t0) / 1000)); again.hidden = phase !== 'fail'; el.dataset.phase = phase; };
+  waking = Net.wake({ onWait: () => { el.hidden = false; show('wait'); tick = setInterval(() => show('wait'), 1000); } }).then(ok => {
+    clearInterval(tick); waking = null; awake = ok;
+    if (!el.hidden) { show(ok ? 'ok' : 'fail'); if (ok) setTimeout(() => { el.hidden = true; }, 2500); }
+    return ok;
+  });
+  return waking;
+}
+$('#wakeRetry').onclick = () => { awake = null; wakeServer(); };
+$('#wakeClose').onclick = () => { $('#wake').hidden = true; };
+async function needServer() { if (await wakeServer()) return; throw new Error('Сервер не отвечает — попробуйте ещё раз через минуту.'); }
 // Онлайн-меню
-$('#onlineBtn').onclick = () => { $('#menu').close(); $('#onlineErr').textContent = ''; $('#codeArea').hidden = !net; $('#online').showModal(); };
-$('#createBtn').onclick = async () => { try { if (!goLocal()) return; const sess = await Net.create({ houseCrocDeath: $('#optCroc').checked, archipelagoMissionary: $('#optArch').checked }); showCode(sess.code); goOnline(sess); } catch (e) { $('#onlineErr').textContent = e.message; } };
+$('#onlineBtn').onclick = () => { $('#menu').close(); $('#onlineErr').textContent = ''; $('#codeArea').hidden = !net; $('#online').showModal(); wakeServer(); };
+$('#createBtn').onclick = async () => { try { await needServer(); if (!goLocal()) return; const sess = await Net.create({ houseCrocDeath: $('#optCroc').checked, archipelagoMissionary: $('#optArch').checked }); showCode(sess.code); goOnline(sess); } catch (e) { $('#onlineErr').textContent = e.message; } };
 $('#shareBtn').onclick = async () => { const code = net?.sess.code; if (!code) return; const text = `Сыграем в «Шакал»? Код игры: ${code} — ${location.origin}`; try { if (navigator.share) await navigator.share({ text }); else { await navigator.clipboard.writeText(code); $('#onlineErr').textContent = 'Код скопирован'; } } catch {} };
-$('#joinBtn').onclick = async () => { const code = $('#codeIn').value.trim().toUpperCase(); if (!code) return; try { if (!goLocal()) return; const sess = await Net.join(code); goOnline(sess); $('#online').close(); } catch (e) { $('#onlineErr').textContent = e.message; } };
+$('#joinBtn').onclick = async () => { const code = $('#codeIn').value.trim().toUpperCase(); if (!code) return; try { await needServer(); if (!goLocal()) return; const sess = await Net.join(code); goOnline(sess); $('#online').close(); } catch (e) { $('#onlineErr').textContent = e.message; } };
 $('#codeIn').onkeydown = e => { if (e.key === 'Enter') $('#joinBtn').click(); };
 $('#leaveBtn').onclick = () => { if (!goLocal()) return; $('#online').close(); try { state = G.loadState(localStorage.getItem('jackal-save')); } catch { return start(V.DEFAULT_MODE); } render(); };
 // Нейтральное поле без фигур (за меню в новой вкладке).
@@ -191,5 +209,6 @@ $('#continueBtn').onclick = () => { if (!goLocal()) return; try { state = G.load
 $('#menu').addEventListener('close', () => { if (!state && !net && !$('#online').open) start(V.DEFAULT_MODE); });
 $('#online').addEventListener('close', () => { if (!state && !net) showMenu(); }); // «Отмена» на пустом поле — новая 1v1
 const sess = Net.saved();
+if (IS_REMOTE || sess) wakeServer(); // клиент на GitHub Pages — сразу будим сервер, плашка видна с первого экрана
 if (sess && location.protocol.startsWith('http')) goOnline(sess);
 else showMenu(); // новая вкладка: меню над пустым полем, старую партию не восстанавливаем сами
