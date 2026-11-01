@@ -101,3 +101,11 @@ nav button:disabled{opacity:.45;cursor:not-allowed}nav button[aria-pressed=true]
 .cell .pirate .num,.cell .pirate img.drunk,.crew .tok b,.crew .tok img.drunk{outline:1px solid #fff;border-radius:50%;pointer-events:none}
 .cell .pirate .num{font-size:max(8px,.8em)}
 .cell .pirate .num.cnt{font-size:max(7px,.6em);letter-spacing:-.05em}
+
+/* v0.5.16: журнал — история в стиле старой пиратской карты */
+#log{box-sizing:border-box;width:min(700px,95vw);margin:8px 0 0;padding:6px 12px 8px;min-height:0;font:12px/1.45 Georgia,"Times New Roman",serif;color:#b9c7cc;background:#0d2a35aa;border:1px dashed #b9a57a88;border-radius:6px}
+#log h3{margin:0 0 3px;font:italic 600 11px Georgia,serif;letter-spacing:.12em;text-transform:uppercase;color:#c8b48a;border-bottom:1px solid #b9a57a55;padding-bottom:2px}
+#log ol{list-style:none;margin:0;padding:0}#log li{display:flex;align-items:baseline;gap:6px;overflow-wrap:anywhere}
+#log .ln{flex:none;min-width:2.6em;font-variant-numeric:tabular-nums;opacity:.85}
+#log .dot{flex:none;width:8px;height:8px;border-radius:50%;background:var(--team);box-shadow:0 0 0 1px #0008;align-self:center}
+#log li:first-child{opacity:1}#log li+li{opacity:.8}

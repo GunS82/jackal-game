@@ -489,3 +489,18 @@ test('v0.5.15: чёрные на корабле (6,0) — на плашке, в 
   const t = G.applyMove(s, G.legalMoves(s).find(m => m.pid === 4));
   assert.ok(!t.log.some(l => /[БЧ][4-9]|пират [4-9]/.test(l)));
 });
+
+test('v0.5.16: журнал — история: «Журнал», №хода + точка команды, без эмодзи, 5 последних, новые сверху', () => {
+  const s = G.loadState(fs.readFileSync(new URL('../positions/v0512-all-drunk.json', import.meta.url), 'utf8'));
+  let e = V.logEntries(s);
+  assert.deepEqual(e[0], { n: 1, team: 0, text: 'Белые пропускают ход: все пираты пьяны' });
+  let t = s; for (let i = 0; i < 12 && !t.over; i++) t = G.applyMove(t, G.legalMoves(t)[0]);
+  e = V.logEntries(t); assert.ok(e.length <= 5);
+  for (let i = 1; i < e.length; i++) assert.ok(e[i - 1].n >= e[i].n, 'новые сверху');
+  for (const x of V.logEntries({ log: ['⏭ a', '☠ Б1: утонул', '🍾 Белые: +1 рома', '💰 Чёрные: монета на корабле'], logMeta: [1, 2, 3, 4].map(t => ({ t, team: 0 })) }, 5)) assert.ok(!/\p{Extended_Pictographic}|⏭/u.test(x.text), x.text);
+  assert.equal(V.logEntries(G.loadState(G.serialize(t))).length, e.length, 'переживает сохранение');
+  const ui = fs.readFileSync(new URL('../src/ui.js', import.meta.url), 'utf8'), css = fs.readFileSync(new URL('../style.css', import.meta.url), 'utf8');
+  assert.match(ui, /<h3>Журнал<\/h3>/); assert.match(ui, /class="dot"/); assert.match(ui, /№\$\{e\.n\}/);
+  assert.match(css, /#log\{[^}]*color:#b9c7cc/); assert.match(css, /#log \.dot\{[^}]*border-radius:50%/);
+  assert.ok(parseInt(css.match(/#log\{[^}]*font:(\d+)px/)[1]) < 14, 'мельче статуса (14px)');
+});

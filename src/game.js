@@ -173,7 +173,7 @@ export function legalMoves(s) {
   return out;
 }
 
-function msg(s, text) { s.log.push(text); if (s.log.length > 200) s.log.shift(); }
+function msg(s, text) { s.log.push(text); (s.logMeta ||= []).push({ t: s.turn + 1, team: s.current }); while (s.logMeta.length > s.log.length) s.logMeta.shift(); if (s.log.length > 200) { s.log.shift(); s.logMeta.shift(); } }
 export function pieceName(s, p) {
   if (p.role === 'exmissionary') return `${TEAMS[p.team].name[0]}-экс-миссионер`;
   if (p.role) return `${CHARACTERS[p.role]} (${TEAMS[p.team].name})`;

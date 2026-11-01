@@ -210,3 +210,12 @@ export function stacks(s, ps, sel = null) {
   return [...by.values()].flatMap(g => g.length < 2 || g.some(p => p.role) ? g.map(p => ({ top: p, pids: [p.id], n: 1, label: pirateNumber(s, p), drunk: isDrunk(s, p) }))
     : [{ top: g.find(p => p.id === sel) || g[0], pids: g.map(p => p.id), n: g.length, label: '×' + g.length, drunk: g.some(p => isDrunk(s, p)) }]);
 }
+
+// v0.5.16: журнал — история: последние k записей, новые сверху; номер хода, команда (для цветной точки), текст без эмодзи.
+export function logEntries(s, k = 5) {
+  const log = s?.log || [], meta = s?.logMeta || [], off = log.length - meta.length;
+  return log.map((l, i) => ({ l, m: meta[i - off] })).slice(-k).reverse().map(({ l, m }) => ({
+    n: m?.t ?? null, team: m?.team ?? null,
+    text: l.replace(/^[^\p{L}\p{N}«(]+/u, '').replace(/ ход №\d+:/, ' ход:').trim(),
+  }));
+}

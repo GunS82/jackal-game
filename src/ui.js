@@ -69,7 +69,8 @@ function render() {
   const bs = V.buttons(s, moves, { sel, withCoin, myTurn: myTurn() });
   for (const [id, b] of [['#shipBtn', bs.ship], ['#coinBtn', bs.coin], ['#reviveBtn', bs.revive], ['#rumBtn', bs.rum]]) { const el = $(id); el.disabled = b.disabled; el.textContent = b.label; el.setAttribute('aria-pressed', b.pressed); el.hidden = false; }
   $('#me').value = me;
-  $('#log').textContent = s.log.slice(-6).reverse().join('\n');
+  { const es = V.logEntries(s, 5), esc = t => t.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]); $('#log').hidden = !es.length;
+    $('#log').innerHTML = '<h3>Журнал</h3><ol>' + es.map(e => `<li>${e.n ? `<span class="ln">№${e.n}</span>` : ''}${e.team != null ? `<i class="dot" style="--team:${G.TEAMS[e.team].color}"></i>` : ''}<span class="lt">${esc(e.text)}</span></li>`).join('') + '</ol>'; }
   if (s.pending && (!s.pending.type || s.pending.type === 'cave') && myTurn() && sel !== s.pending.pid) { sel = s.pending.pid; withCoin = s.pending.treasure ? 'T' : s.pending.coin; return render(); }
   const ya = $('#youAre'); ya.hidden = !net; if (net) { ya.textContent = V.youAreText(s, net.sess.player); ya.style.borderColor = G.TEAMS[G.teamsOfPlayer(s, net.sess.player)[0]]?.color ?? ''; }
   $('#fileHelp').hidden = !V.showFileHelp({ online: !!net, me });
