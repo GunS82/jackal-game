@@ -9,4 +9,11 @@ export function check(s) {
   if (total !== 37 - (s.mode === '1v1' ? 0 : 0)) throw new Error('монеты не сходятся: ' + total);
   for (const p of s.pirates) if (p.alive && !G.inGrid(p.x, p.y)) throw new Error('пират вне поля');
 }
-if (process.argv[1].endsWith('sim.js')) { for (const mode of ['2p', '1v1', '2v2', '4p']) for (let seed = 1; seed <= 5; seed++) { const { s, n } = simulate(seed, mode, 3000); console.log(mode, seed, 'ходов', n, 'окончена', s.over, 'счёт', s.score.join('/'), 'утонуло', s.lost, 'победа', G.winner(s)); } }
+if (process.argv[1]?.endsWith('sim.js')) {
+  const modes = process.argv[2] ? [process.argv[2]] : ['2p', '1v1', '2v2', '4p'];
+  for (const mode of modes) for (let seed = 1; seed <= 5; seed++) {
+    const { s, n } = simulate(seed, mode, 3000);
+    const fin = { ...s, over: true }; // лидер на момент остановки, если партия не закончилась
+    console.log(mode, seed, 'ходов', n, 'окончена', s.over, 'стороны', JSON.stringify(G.sideScores(s)), 'утонуло', s.lost, s.over ? 'победа' : 'лидер', G.winner(fin).map(k => G.sideName(s, k)).join(' | '));
+  }
+}

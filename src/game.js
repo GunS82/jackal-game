@@ -72,7 +72,9 @@ function landTargets(s, p) {
   if (SPIN[t.kind] && p.spin < SPIN[t.kind]) return [[p.x, p.y, 'spin']];
   if (t.kind === 'arrow') return t.dirs.map(([dx, dy]) => [p.x + dx, p.y + dy, 'arrow']);
   if (t.kind === 'horse') return KNIGHT.map(([dx, dy]) => [p.x + dx, p.y + dy, 'horse']).filter(([x, y]) => inGrid(x, y));
-  if (t.kind === 'plane' && !t.used) { const out = []; for (const k in s.tiles) { const [x, y] = k.split(',').map(Number); if (x !== p.x || y !== p.y) out.push([x, y, 'plane']); } return out; }
+  if (t.kind === 'plane' && !t.used) { const out = []; for (const k in s.tiles) { const [x, y] = k.split(',').map(Number); if (x !== p.x || y !== p.y) out.push([x, y, 'plane']); }
+    s.ships.forEach((sh, i) => { if (activeTeams(s.mode).includes(i) && allied(s, i, p.team)) out.push([sh.x, sh.y, 'plane']); }); // самолёт может доставить на свой корабль
+    return out; }
   return NB.map(([dx, dy]) => [p.x + dx, p.y + dy, 'step']).filter(([x, y]) => inGrid(x, y));
 }
 
@@ -198,7 +200,7 @@ export function applyMove(s0, m, { asPlayer = null } = {}) {
   const team = s.current;
   if (m.type === 'ship') {
     const sh = s.ships[team], ox = sh.x, oy = sh.y;
-    for (const q of here(s, m.x, m.y)) { if (allied(s, q.team, team)) { if (q.team === team) q.x = q.x; } else die(s, q, 'раздавлен кораблём'); }
+    for (const q of here(s, m.x, m.y)) if (!allied(s, q.team, team)) die(s, q, 'раздавлен кораблём'); // свои/союзные пловцы просто оказываются на корабле
     for (const q of here(s, ox, oy)) if (q.team === team) { q.x = m.x; q.y = m.y; }
     sh.x = m.x; sh.y = m.y;
   } else if (m.type === 'revive') {
@@ -226,7 +228,7 @@ function endTurn(s) {
     s.pending = null; die(s, p, 'некуда идти');
   }
   s.turn++;
-  if (coinsLeft(s) === 0 && s.score.some(v => v > 0) + s.lost > 0) { s.over = true; return; }
+  if (coinsLeft(s) === 0 && (s.score.some(v => v > 0) || s.lost > 0)) { s.over = true; return; }
   const act = activeTeams(s.mode);
   for (let i = 0; i < 4; i++) {
     s.current = act[(act.indexOf(s.current) + 1) % act.length];

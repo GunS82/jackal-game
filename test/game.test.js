@@ -42,3 +42,19 @@ test('spin-coin.json: монета едет с пиратом через вер�
   assert.deepEqual([s.pirates[0].x, s.pirates[0].y, s.pirates[0].carry], [6, 8, false]); assert.equal(G.tileAt(s, 6, 8).coins, 1); assert.equal(G.coinsLeft(s), 1);
 });
 test('файл неверной версии', () => { assert.throws(() => G.loadState({ version: 99, pirates: [] }), /версия/); });
+
+test('самолёт доставляет пирата с монетой на свой корабль', () => {
+  let s = pos({ tiles: { '3,3': { kind: 'plane', coins: 1 } }, pirates: [{ team: 0, x: 3, y: 3 }] });
+  s = mv(s, m => m.via === 'plane' && m.coin && m.x === 6 && m.y === 12);
+  assert.equal(s.score[0], 1); assert.deepEqual([s.pirates[0].x, s.pirates[0].y], [6, 12]); assert.equal(G.tileAt(s, 3, 3).used, true); assert.equal(G.tileAt(s, 3, 3).coins, 0);
+});
+test('корабль везёт своих пиратов и подбирает своего пловца', () => {
+  let s = pos({ pirates: [{ team: 0, onShip: true }, { team: 0, onShip: true }, { team: 0, x: 7, y: 12 }, { team: 2, x: 5, y: 12 }] });
+  s = mv(s, m => m.type === 'ship' && m.x === 7);
+  assert.deepEqual(s.ships[0], { x: 7, y: 12 });
+  for (const p of s.pirates.filter(p => p.team === 0)) { assert.ok(p.alive); assert.deepEqual([p.x, p.y], [7, 12]); assert.ok(G.onShip(s, p)); }
+});
+test('корабль давит вражеского пловца', () => {
+  let s = pos({ mode: '1v1', pirates: [{ team: 0, onShip: true }, { team: 2, x: 7, y: 12 }] });
+  s = mv(s, m => m.type === 'ship' && m.x === 7); assert.equal(s.pirates.find(p => p.team === 2).alive, false);
+});
