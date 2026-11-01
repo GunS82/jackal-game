@@ -1,0 +1,4 @@
+{ "mode": "2v2", "current": 0,
+  "tiles": { "5,10": { "kind": "chest2", "open": true, "coins": 2 }, "6,10": { "kind": "fort", "open": true }, "4,9": { "kind": "arrow1", "dirs": [[1,1]] } },
+  "pirates": [ { "team": 0, "x": 5, "y": 10 }, { "team": 1, "x": 5, "y": 9 }, { "team": 3, "x": 4, "y": 10, "trapped": false } ],
+  "score": [0,1,0,0] }

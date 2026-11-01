@@ -1,0 +1,11 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Шакал — остров сокровищ</title><link rel="stylesheet" href="style.css"></head><body>
+<header><h1>🏴‍☠️ Шакал</h1><div id="turn"></div></header>
+<main id="board"></main>
+<div id="score"></div>
+<nav><button id="shipBtn">⛵ Двигать корабль</button><button id="coinBtn" hidden></button><button id="reviveBtn" hidden>❤ Воскресить</button>
+<button id="newBtn">Новая игра</button><button id="saveBtn">Сохранить</button><button id="loadBtn">Загрузить позицию</button><input type="file" id="file" accept=".json,application/json" hidden></nav>
+<p class="help">Нажмите на своего пирата (повторное нажатие — следующий пират на клетке), затем на подсвеченную клетку. Для корабля — «Двигать корабль».</p>
+<pre id="log"></pre>
+<dialog id="menu"><h2>Новая игра</h2><button data-mode="2p">2 игрока (по 2 команды)</button><button data-mode="2v2">4 игрока, 2 на 2</button><button data-mode="4p">4 игрока, каждый за себя</button><form method="dialog"><button>Отмена</button></form></dialog>
+<script type="module" src="src/ui.js"></script></body></html>

@@ -1,0 +1,3 @@
+{ "mode": "2p", "current": 0,
+  "tiles": { "6,10": { "kind": "ice", "open": true }, "6,9": { "kind": "chest3", "open": false } },
+  "pirates": [ { "team": 0, "x": 6, "y": 11 }, { "team": 0, "onShip": true }, { "team": 1, "onShip": true } ] }
