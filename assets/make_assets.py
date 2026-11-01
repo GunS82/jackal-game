@@ -47,3 +47,14 @@ for n,ds in ARR.items():
         L=36 if dx and dy else 34
         b+=f'<g transform="rotate({a} 50 50)"><path d="M50 50 V{50-L} M40 {60-L} L50 {50-L} L60 {60-L}" {st}/></g>'
     tile(n,b)
+# Клетки второго этапа
+tile('cave',f'<path d="M14 82 Q20 30 50 22 Q80 30 86 82 Z" fill="#7a6a55" stroke="{E}" stroke-width="3"/><path d="M34 82 Q36 50 50 46 Q64 50 66 82 Z" fill="#1e1a16"/>')
+tile('bengunn',f'<circle cx="50" cy="38" r="14" fill="#e8c9a0" stroke="{E}" stroke-width="3"/><path d="M38 44 Q50 70 62 44" fill="#d8d0c0" stroke="{E}" stroke-width="2"/><path d="M30 86 Q32 58 50 56 Q68 58 70 86 Z" fill="#8a7a5a" stroke="{E}" stroke-width="3"/><path d="M32 28 Q50 14 68 28" {st}/>')
+tile('friday',f'<circle cx="50" cy="36" r="13" fill="#7a4a2a" stroke="{E}" stroke-width="3"/><path d="M30 86 Q32 56 50 54 Q68 56 70 86 Z" fill="#7a4a2a" stroke="{E}" stroke-width="3"/><path d="M34 66 H66" stroke="#2f6b3a" stroke-width="6"/><path d="M44 24 L46 14 M50 23 V12 M56 24 L54 14" stroke="#c0392b" stroke-width="3"/>')
+tile('missionary',f'<circle cx="50" cy="36" r="13" fill="#e8c9a0" stroke="{E}" stroke-width="3"/><path d="M28 86 Q30 54 50 52 Q70 54 72 86 Z" fill="#2b2b2b"/><path d="M50 60 V80 M42 67 H58" stroke="#f3ead2" stroke-width="4"/>')
+tile('lighthouse',f'<path d="M40 82 L44 34 H56 L60 82 Z" fill="#f3ead2" stroke="{E}" stroke-width="3"/><path d="M42 50 H58 M41 66 H59" stroke="#c0392b" stroke-width="6"/><rect x="42" y="22" width="16" height="12" fill="#e3b23c" stroke="{E}" stroke-width="3"/><path d="M58 26 L86 16 M58 30 L86 40 M42 26 L14 16 M42 30 L14 40" stroke="#e3b23c" stroke-width="3"/>')
+tile('quake',f'<path d="M50 12 L42 34 L58 46 L40 62 L54 74 L46 90" {st}/><path d="M20 30 L30 36 M80 64 L70 70 M22 70 L32 66 M78 30 L68 36" {S("#8a5a2b")}/>')
+tile('jungle',f'<path d="M50 85 V30 M50 40 Q30 30 18 44 M50 40 Q70 30 82 44 M50 55 Q32 48 22 62 M50 55 Q68 48 78 62" {S("#2f6b3a")}/>',bg='#cfe0b0')
+tile('grass',''.join(f'<path d="M{x} 80 Q{x+3} 60 {x+8} 46" {S("#3c7a3a")}/>' for x in range(20,80,10)),bg='#d9e6b5')
+tile('caramba',f'<path d="M50 14 L60 38 L86 40 L66 56 L74 82 L50 66 L26 82 L34 56 L14 40 L40 38 Z" fill="#e3b23c" stroke="{E}" stroke-width="3"/>'+txt('!',62,30))
+tile('galleon',f'<rect x="20" y="44" width="60" height="34" rx="4" fill="#8a5a2b" stroke="{E}" stroke-width="3"/><path d="M20 44 Q50 22 80 44" fill="#a0692f" stroke="{E}" stroke-width="3"/><path d="M20 56 H80" stroke="#d4a017" stroke-width="5"/><circle cx="50" cy="62" r="6" fill="#d4a017" stroke="{E}" stroke-width="2"/>')
