@@ -374,11 +374,16 @@ test('v0.5.9: бочонок рома — пропуск ровно одного
   }
 });
 
-test('v0.5.9: значок пьяного крупнее — 40% рамки фишки на поле и в панели, вынесен как номер', () => {
+test('v0.5.12: значок пьяного того же размера, что номер (общая CSS-переменная), вынос как у номера', () => {
   const css = fs.readFileSync(new URL('../style.css', import.meta.url), 'utf8');
-  assert.match(css, /\.cell \.pirate img\.drunk\{position:absolute;right:-14%;bottom:-14%;width:40%;height:40%/);
-  assert.match(css, /\.cell \.pirate \.num\{position:absolute;right:-14%;top:-14%/, 'номер вынесен на столько же');
-  assert.match(css, /\.crew \.tok img\.drunk\{position:absolute;right:-3px;bottom:-3px;width:calc\(\(100% \+ 6px\) \* \.4\)/);
+  const rule = sel => { const m = [...css.matchAll(new RegExp(sel.replace(/[.]/g, '\\.') + '(?:,[^{]*)?\\{([^}]*)\\}', 'g'))].map(m => m[1]).join(';'); return k => (m.match(new RegExp('(?:^|;)' + k + ':([^;]+)', 'g')) || []).pop()?.split(':').slice(1).join(':'); };
+  const num = rule('.cell .pirate .num'), dr = rule('.cell .pirate img.drunk');
+  assert.equal(num('width'), 'var(--badge)'); assert.equal(dr('width'), num('width')); assert.equal(dr('height'), num('height'));
+  assert.match(css, /\.cell \.pirate\{--badge:58%\}/);
+  assert.equal(dr('right'), num('right')); assert.equal(dr('bottom'), num('top'), 'вынос за край как у номера');
+  const tb = rule('.crew .tok b'), td = rule('.crew .tok img.drunk');
+  assert.equal(tb('min-width'), 'var(--tbadge)'); assert.equal(td('width'), 'var(--tbadge)'); assert.equal(td('height'), tb('height'));
+  assert.equal(td('right'), tb('right')); assert.equal(td('bottom'), tb('top'));
 });
 
 test('v0.5.10: позиция v0510-rum-both — оба белых пьяны на одной клетке; ход белых №3 — «Пираты пьяны…»', () => {
@@ -404,4 +409,30 @@ test('v0.5.10: корабль чёрных у верхнего края — пл
   const ui = fs.readFileSync(new URL('../src/ui.js', import.meta.url), 'utf8');
   assert.match(ui, /d\.style\.gridRow = String\(plate\.y \+ 1\)/, 'плашка в той же строке, что и клетка (строка 1 у верхнего края)');
   assert.match(ui, /V\.drunkNotice\(state, x, y\) \|\| V\.turnNotice\(state, x, y\)/);
+});
+
+test('v0.5.12: все пираты пьяны — ход сам переходит к сопернику (и при загрузке позиции), с понятным сообщением', () => {
+  const raw = fs.readFileSync(new URL('../positions/v0512-all-drunk.json', import.meta.url), 'utf8');
+  const j = JSON.parse(raw); assert.equal(j.current, 0); assert.equal(j.mode, '1v1');
+  assert.equal(j.pirates.filter(p => p.team === 0 && p.alive && p.drunkUntil > j.turn).length, 3, 'все три белых пьяны');
+  const s = G.loadState(raw);
+  assert.equal(s.over, false); assert.equal(s.current, 2, 'ход у чёрных'); assert.equal(s.turn, 1);
+  assert.ok(G.legalMoves(s).length > 0, 'не зависло');
+  assert.equal(s.log.at(-1), '⏭ Белые пропускают ход №1: все пираты пьяны');
+  assert.equal(V.skipNotice(s), 'Белые пропускают ход №1: все пираты пьяны');
+  const t = G.applyMove(s, G.legalMoves(s)[0]);
+  assert.equal(t.current, 0); assert.equal(V.skipNotice(t), null, 'сообщение не висит дальше');
+  assert.ok(G.legalMoves(t).some(m => m.pid === t.pirates.find(p => p.team === 0 && p.x === 6 && p.y === 8).id), 'протрезвели и ходят');
+  // и посреди партии: белые пьяны после хода чёрных — пропуск без зависания
+  const u = G.newGame({ mode: '1v1', seed: 3 }); u.tiles['6,8'] = { kind: 'empty', open: true, coins: 0 };
+  for (const p of u.pirates.filter(p => p.team === 0)) { p.x = 6; p.y = 8; p.drunkUntil = 3; }
+  u.current = 2; u.turn = 1; const v = G.applyMove(u, G.legalMoves(u)[0]);
+  assert.equal(v.current, 2); assert.equal(v.turn, 3); assert.match(V.skipNotice(v), /^Белые пропускают ход №3: все пираты пьяны$/);
+});
+
+test('v0.5.12: плашка на корабле — подсказка «выберите одного на плашке»', () => {
+  assert.equal(V.plateHint({ x: 6, y: 0, pids: [3, 4, 5] }, null, true), 'На клетке 3 пирата — выберите одного на плашке справа');
+  assert.equal(V.plateHint({ x: 6, y: 0, pids: [3, 4, 5] }, 4, true), null);
+  assert.equal(V.plateHint({ x: 6, y: 0, pids: [3, 4, 5] }, null, false), null);
+  assert.equal(V.plateHint(null, null, true), null);
 });

@@ -386,12 +386,22 @@ function endTurn(s) {
   if (coinsLeft(s) === 0 && (s.score.some(v => v > 0) || s.lost > 0)) return finish(s, 'allCoins');
   const act = activeTeams(s.mode);
   if (!s.pirates.some(p => p.alive && act.includes(p.team))) return finish(s, 'noPirates');
+  s.current = act[(act.indexOf(s.current) + 1) % act.length];
+  passStuck(s);
+}
+// Текущая команда без ходов (все пьяны, в капкане и т. п.) — ход сам переходит дальше, с записью в журнал.
+export const SKIP_MARK = '⏭';
+function passStuck(s) {
+  const act = activeTeams(s.mode);
   let passes = 0;
   for (let i = 0; i < 400; i++) {
-    s.current = act[(act.indexOf(s.current) + 1) % act.length];
     if (legalMoves(s).length) return;
+    const own = s.pirates.filter(p => p.alive && p.team === s.current && !p.inCave);
+    const why = own.length && own.every(p => s.turn < p.drunkUntil) ? (own.length > 1 ? 'все пираты пьяны' : 'пират пьян') : 'нет ходов';
+    msg(s, `${SKIP_MARK} ${TEAMS[s.current].name} пропускают ход №${s.turn + 1}: ${why}`);
     if (++passes >= act.length && !waiting(s)) return finish(s, 'noMoves'); // полный круг без ходов
     nextTurn(s); // команда без ходов пропускает ход
+    s.current = act[(act.indexOf(s.current) + 1) % act.length];
   }
   finish(s, 'noMoves');
 }
@@ -470,6 +480,7 @@ export function loadState(text) {
   for (const t of activeTeams(mode)) while (count[t]++ < 3) s.pirates.push({ id: 0, team: t, x: null, y: null, alive: false, spin: 0, trapped: false, drunkUntil: 0 });
   s.pirates.sort((a, b) => a.team - b.team || !!a.role - !!b.role); s.pirates.forEach((p, i) => p.id = i);
   if (s.pending && s.pending.pid != null && !s.pirates[s.pending.pid]) err('pending.pid: нет такого пирата');
+  if (!s.over && !s.pending && !legalMoves(s).length) passStuck(s); // загруженная позиция, где ходить нечем, — сразу передать ход
   return s;
 }
 

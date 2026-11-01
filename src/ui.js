@@ -62,7 +62,7 @@ function render() {
   dot.hidden = !!s.over; dot.style.background = T.color;
   if ($('#turnPrefix').textContent !== hp.prefix) $('#turnPrefix').textContent = hp.prefix;
   if ($('#turnText').textContent !== hp.text) $('#turnText').textContent = hp.text;
-  $('#status').textContent = notice || V.coinHint(moves, { sel, withCoin }) || V.selectHint(s, sel, { myTurn: myTurn() }) || ''; notice = '';
+  $('#status').textContent = notice || V.plateHint(plate, sel, myTurn()) || V.skipNotice(s) || V.coinHint(moves, { sel, withCoin }) || V.selectHint(s, sel, { myTurn: myTurn() }) || ''; notice = '';
   const sc = G.sideScores(s);
   $('#score').innerHTML = Object.keys(sc).map(k => `${G.sideName(s, +k)}: <b>${sc[k]}</b>`).join(' · ') + ` · осталось ${G.coinsLeft(s)} · утонуло ${s.lost} · ром: ${G.activeTeams(s.mode).map(t => s.rum[t]).join('/')}`;
   const bs = V.buttons(s, moves, { sel, withCoin, myTurn: myTurn() });

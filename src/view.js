@@ -174,6 +174,19 @@ export function resumeInfo(raw) {
 }
 
 // v0.5.8: свои пираты на клетке не могут ходить, потому что пьяны (ром) — подсказка вместо «ничего не произошло».
+// Открыта плашка, пират ещё не выбран — подсказать, что делать дальше (иначе кажется, что клик «ничего не сделал»).
+export function plateHint(plate, sel, myTurn) {
+  if (!plate || !myTurn || plate.pids.includes(sel)) return null;
+  const pl = platePlacement({ x: plate.x, n: plate.pids.length });
+  return `На клетке ${plate.pids.length} ${plate.pids.length < 5 ? 'пирата' : 'пиратов'} — выберите одного на плашке ${pl.side === 'right' ? 'справа' : 'слева'}`;
+}
+// Ход только что пропущен автоматически (все пьяны / нет ходов) — показать это над полем.
+export function skipNotice(s) {
+  if (!s || !s.log?.length) return null;
+  const m = [...s.log].reverse().find(l => l.startsWith(G.SKIP_MARK)); if (!m) return null;
+  const n = +(m.match(/№(\d+)/) || [])[1];
+  return n === s.turn ? m.slice(G.SKIP_MARK.length).trim() : null;
+}
 // Нажали на чужих пиратов (например, на корабль чёрных в ход белых) — объяснить, почему ничего не выбрано.
 export function turnNotice(s, x, y) {
   if (!s || s.over || s.pending) return null;
