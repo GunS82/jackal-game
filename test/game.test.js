@@ -294,7 +294,7 @@ test('v0.5.7: новая вкладка — меню над пустым пол�
   assert.equal(V.resumeInfo(G.serialize(G.newGame({ mode: '2p', seed: 1 }))).mode, '2p');
   const ui = fs.readFileSync(new URL('../src/ui.js', import.meta.url), 'utf8');
   assert.match(ui, /else showMenu\(\);/); assert.doesNotMatch(ui, /if \(saved\) \{ state = G\.loadState\(saved\)/, 'нет автовосстановления');
-  assert.match(ui, /Net\.forget\(\); net = null; sessionStorage\.setItem\(V\.NOTE_KEY, 'Партия больше не существует'\); showMenu\(\)/);
+  assert.match(ui, /Net\.forget\(\); net = null;[^\n]*\n[^\n]*\n[^\n]*\n  sessionStorage\.setItem\(V\.NOTE_KEY, 'Партия больше не существует'\); showMenu\(\)/);
 });
 
 test('v0.5.8: позиция positions/v058-two-pirates-edge.json — два белых на открытой клетке суши у края, ход белых, плашка', () => {
@@ -329,4 +329,36 @@ test('v0.5.8: значок пьяного пирата есть, пока пир
   assert.ok(fs.existsSync(new URL('../' + V.DRUNK_ICON, import.meta.url)));
   const ui = fs.readFileSync(new URL('../src/ui.js', import.meta.url), 'utf8'); assert.equal((ui.match(/V\.isDrunk\(s, p\) \? `<img class="drunk"/g) || []).length, 2, 'на поле и в панели');
   const css = fs.readFileSync(new URL('../style.css', import.meta.url), 'utf8'); assert.match(css, /img\.drunk\{position:absolute;right:-14%;bottom:-14%/);
+});
+
+test('v0.5.8: позиция positions/v058-rum.json — пират заходит на ром, пропускает ход и трезвеет', () => {
+  let s = G.loadState(fs.readFileSync(new URL('../positions/v058-rum.json', import.meta.url), 'utf8'));
+  assert.equal(s.mode, '1v1'); assert.equal(s.current, 0);
+  const t = G.tileAt(s, 6, 8); assert.equal(t.kind, 'barrel'); assert.equal(t.open, true);
+  const w = s.pirates.filter(p => p.alive && p.team === 0 && Math.max(Math.abs(p.x - 6), Math.abs(p.y - 8)) === 1);
+  assert.equal(w.length, 2);
+  for (const p of w) { const c = G.tileAt(s, p.x, p.y); assert.ok(c.kind === 'empty' && c.open && V.isLandCell(p.x, p.y)); assert.ok(G.legalMoves(s).some(m => m.type === 'move' && m.pid === p.id && m.x === 6 && m.y === 8)); }
+  assert.ok(s.pirates.filter(p => p.team !== 0).every(p => p.y <= 1), 'чёрные далеко');
+  const id = w[0].id;
+  s = G.applyMove(s, G.legalMoves(s).find(m => m.type === 'move' && m.pid === id && m.x === 6 && m.y === 8));
+  const p = () => s.pirates[id];
+  assert.equal(V.isDrunk(s, p()), true);
+  let skipped = 0;
+  for (let i = 0; i < 20 && V.isDrunk(s, p()); i++) {
+    if (s.current === 0) { skipped++; assert.equal(V.drunkNotice(s, 6, 8), 'Пират пьян и пропускает ход'); assert.ok(!G.legalMoves(s).some(m => m.pid === id), 'пьяный не ходит'); }
+    s = G.applyMove(s, G.legalMoves(s).find(m => m.pid !== id && !(m.x === 6 && m.y === 8)));
+  }
+  assert.ok(skipped >= 1); assert.equal(V.isDrunk(s, p()), false, 'протрезвел');
+  assert.equal(V.drunkNotice(s, 6, 8), null);
+  while (s.current !== 0) s = G.applyMove(s, G.legalMoves(s)[0]);
+  assert.ok(G.legalMoves(s).some(m => m.pid === id), 'снова ходит');
+});
+
+test('v0.5.9: «комнаты нет» — без плашки связи, онлайн-окна и переподключения; заметка убирается из DOM', () => {
+  const ui = fs.readFileSync(new URL('../src/ui.js', import.meta.url), 'utf8');
+  const fn = ui.match(/function roomGone\(\) \{[\s\S]*?\n\}/)[0];
+  assert.match(fn, /net\.stop\(\)/); assert.match(fn, /net = null/); assert.match(fn, /state = null/);
+  assert.match(fn, /\$\('#banner'\); b\.hidden = true; b\.innerHTML = ''/); assert.match(fn, /\$\('#online'\)\.close\(\)/); assert.match(fn, /showMenu\(\)/);
+  assert.match(ui, /pointerdown[^\n]*removeItem\(V\.NOTE_KEY\)[^\n]*textContent = ''/);
+  const net = fs.readFileSync(new URL('../src/net.js', import.meta.url), 'utf8'); assert.match(net, /!stopped && open\(\)/, 'после stop() переподключений нет');
 });

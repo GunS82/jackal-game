@@ -111,8 +111,15 @@ function goOnline(sess) {
     state = msg.state; net.opponent = msg.opponent; showCode(msg.code);
     if (msg.opponent !== 'waiting' && $('#online').open) $('#online').close();
     render();
-  }, ok => { if (net && net.connected !== ok) { net.connected = ok; if (state) render(); } }, () => { if (!net) return; net.stop(); Net.forget(); net = null; sessionStorage.setItem(V.NOTE_KEY, 'Партия больше не существует'); showMenu(); }); // сервер её не знает (перезапуск/уборка): сессию забыть, открыть меню
+  }, ok => { if (net && net.connected !== ok) { net.connected = ok; if (state) render(); } }, () => { if (!net) return; roomGone(); }); // сервер её не знает (перезапуск/уборка): сессию забыть, открыть меню
   window.jackalDropConnection = () => net?.stop.drop(); // для Тестировщика: имитация обрыва связи
+}
+// Сервер сообщил, что комнаты нет (перезапуск/уборка): прекратить переподключение, убрать плашку связи и онлайн-окно, оставить только меню с надписью.
+function roomGone() {
+  net.stop(); Net.forget(); net = null; state = null; sel = null; plate = null;
+  const b = $('#banner'); b.hidden = true; b.innerHTML = '';
+  if ($('#online').open) $('#online').close();
+  sessionStorage.setItem(V.NOTE_KEY, 'Партия больше не существует'); showMenu();
 }
 // Покинуть онлайн-партию. Пока партия идёт — только с подтверждения; возвращает false, если игрок передумал.
 const LEAVE_Q = 'Выйти из онлайн-партии? Соперник увидит, что вы вышли.';
@@ -177,7 +184,7 @@ function showMenu(note = sessionStorage.getItem(V.NOTE_KEY) || '') {
   if (!$('#menu').open) $('#menu').showModal();
 }
 // первое нажатие где угодно снимает заметку (и после перезагрузки она видна до него)
-addEventListener('pointerdown', () => { if (!sessionStorage.getItem(V.NOTE_KEY)) return; sessionStorage.removeItem(V.NOTE_KEY); $('#menuNote').hidden = true; }, true);
+addEventListener('pointerdown', () => { if (!sessionStorage.getItem(V.NOTE_KEY)) return; sessionStorage.removeItem(V.NOTE_KEY); const n = $('#menuNote'); n.hidden = true; n.textContent = ''; }, true); // текст убрать, чтобы скринридер не читал
 $('#continueBtn').onclick = () => { if (!goLocal()) return; try { state = G.loadState(localStorage.getItem('jackal-save')); sel = null; plate = null; $('#crew').hidden = false; $('#menu').close(); render(); } catch (e) { alert(e.message); } };
 $('#menu').addEventListener('close', () => { if (!state && !net && !$('#online').open) start(V.DEFAULT_MODE); });
 $('#online').addEventListener('close', () => { if (!state && !net) showMenu(); }); // «Отмена» на пустом поле — новая 1v1
