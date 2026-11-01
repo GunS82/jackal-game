@@ -166,8 +166,24 @@ export const plateHidesMoves = (plate, sel) => !!plate && !plate.pids.includes(s
 // v0.5.7: клетка суши (13×13 без моря по краю и угловых клеток) — для пустого поля.
 export const isLandCell = (x, y) => { const N = G.N; if (x <= 0 || y <= 0 || x >= N - 1 || y >= N - 1) return false; return !((x === 1 || x === N - 2) && (y === 1 || y === N - 2)); };
 // Что предложить кнопкой «Продолжить»: только читаемая и не законченная сохранённая партия.
-const MODE_LABEL = { '1v1': '1 на 1 — Белые против Чёрных', '2p': '1 на 1 — классика (4 команды)', '4p': 'на четверых' };
+// подписи совпадают с пунктами меню; для старых режимов — названия из G.MODES
+const MODE_LABEL = { '1v1': '1 на 1 — Белые против Чёрных', '2p': '1 на 1 — классика (по 2 команды, общий счёт)', '2v2': '4 игрока — 2 на 2', '4p': '4 игрока — каждый за себя' };
 export function resumeInfo(raw) {
   if (!raw) return null; let s; try { s = G.loadState(raw); } catch { return null; }
   if (s.over) return null; return { mode: s.mode, label: `${MODE_LABEL[s.mode] ?? s.mode}, ход №${s.turn + 1}` };
 }
+
+// v0.5.8: свои пираты на клетке не могут ходить, потому что пьяны (ром) — подсказка вместо «ничего не произошло».
+export function drunkNotice(s, x, y) {
+  if (!s || s.over || s.pending) return null;
+  const own = s.pirates.filter(p => p.alive && p.x === x && p.y === y && p.team === s.current);
+  if (!own.length || own.some(p => G.pirateMoves(s, p).length)) return null;
+  const drunk = own.filter(p => s.turn < p.drunkUntil); if (drunk.length !== own.length) return null;
+  return drunk.length === 1 ? 'Пират пьян и пропускает ход' : 'Пираты пьяны и пропускают ход';
+}
+// Заметка меню переживает перезагрузку (sessionStorage) и снимается первым нажатием.
+export const NOTE_KEY = 'jackal-menu-note';
+
+// v0.5.8: пират пьян (ром) — значок assets/ui/drunk.svg справа снизу на фишке; снимается, когда протрезвеет.
+export const isDrunk = (s, p) => !!p && p.alive && s.turn < (p.drunkUntil || 0);
+export const DRUNK_ICON = 'assets/ui/drunk.svg';

@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { Rooms, httpErr } from './rooms.js';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.json': 'application/json; charset=utf-8' };
-const STATIC = ['index.html', 'style.css', 'favicon.svg', 'favicon.ico', 'src/', 'assets/', 'test-positions/', 'design/']; // test-positions/ и design/ — для Тестировщика (раньше здесь работал python http.server)
+const STATIC = ['index.html', 'style.css', 'favicon.svg', 'favicon.ico', 'src/', 'assets/', 'test-positions/', 'positions/', 'design/']; // test-positions/ и design/ — для Тестировщика (раньше здесь работал python http.server)
 
 export function createServer({ rooms = new Rooms() } = {}) {
   const json = (res, status, obj) => { res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' }); res.end(JSON.stringify(obj)); };

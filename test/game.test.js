@@ -294,5 +294,39 @@ test('v0.5.7: новая вкладка — меню над пустым пол�
   assert.equal(V.resumeInfo(G.serialize(G.newGame({ mode: '2p', seed: 1 }))).mode, '2p');
   const ui = fs.readFileSync(new URL('../src/ui.js', import.meta.url), 'utf8');
   assert.match(ui, /else showMenu\(\);/); assert.doesNotMatch(ui, /if \(saved\) \{ state = G\.loadState\(saved\)/, 'нет автовосстановления');
-  assert.match(ui, /Net\.forget\(\); net = null; showMenu\('Партия больше не существует'\)/);
+  assert.match(ui, /Net\.forget\(\); net = null; sessionStorage\.setItem\(V\.NOTE_KEY, 'Партия больше не существует'\); showMenu\(\)/);
+});
+
+test('v0.5.8: позиция positions/v058-two-pirates-edge.json — два белых на открытой клетке суши у края, ход белых, плашка', () => {
+  const s = G.loadState(fs.readFileSync(new URL('../positions/v058-two-pirates-edge.json', import.meta.url), 'utf8'));
+  assert.equal(s.mode, '1v1'); assert.equal(s.current, 0);
+  const here = s.pirates.filter(p => p.alive && p.x === 1 && p.y === 6);
+  assert.equal(here.length, 2); assert.ok(here.every(p => p.team === 0 && !p.role && G.pirateMoves(s, p).length > 0));
+  const t = G.tileAt(s, 1, 6); assert.equal(t.kind, 'empty'); assert.equal(t.open, true); assert.ok(V.isLandCell(1, 6));
+  const pl = V.platePlacement({ x: 1, n: 2 }); assert.equal(pl.side, 'right'); assert.equal(pl.start, 2);
+  assert.equal(V.plateHidesMoves({ x: 1, y: 6, pids: here.map(p => p.id) }, null), true);
+});
+
+test('v0.5.8: пьяные пираты — подсказка; подпись «Продолжить» для 4 команд; заметка меню в sessionStorage', () => {
+  const s = G.newGame({ mode: '1v1', seed: 59 }), w = s.pirates.filter(p => p.team === 0);
+  for (const p of w.slice(0, 2)) { p.x = 5; p.y = 5; p.drunkUntil = 3; } s.tiles['5,5'] = { kind: 'empty', open: true, coins: 0 };
+  w[2].x = 6; w[2].y = 5; w[2].drunkUntil = 3; s.tiles['6,5'] = { kind: 'empty', open: true, coins: 0 };
+  assert.equal(V.drunkNotice(s, 5, 5), 'Пираты пьяны и пропускают ход'); assert.equal(V.drunkNotice(s, 6, 5), 'Пират пьян и пропускает ход');
+  assert.equal(V.drunkNotice(s, 7, 7), null); assert.equal(V.drunkNotice({ ...s, turn: 3 }, 5, 5), null, 'протрезвели');
+  w[0].drunkUntil = 0; assert.equal(V.drunkNotice(s, 5, 5), null, 'один может ходить — плашка, не подсказка');
+  assert.equal(V.resumeInfo(G.serialize(G.newGame({ mode: '2p', seed: 1 }))).label, '1 на 1 — классика (по 2 команды, общий счёт), ход №1');
+  assert.equal(V.resumeInfo(G.serialize(G.newGame({ mode: '4p', seed: 1 }))).label, '4 игрока — каждый за себя, ход №1');
+  const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8'); assert.ok(html.includes('1 на 1 — классика (по 2 команды, общий счёт)'));
+  const ui = fs.readFileSync(new URL('../src/ui.js', import.meta.url), 'utf8');
+  assert.match(ui, /showMenu\(note = sessionStorage\.getItem\(V\.NOTE_KEY\)/); assert.match(ui, /pointerdown[^\n]*removeItem\(V\.NOTE_KEY\)/);
+});
+
+test('v0.5.8: значок пьяного пирата есть, пока пират пьян', () => {
+  const s = G.newGame({ mode: '1v1', seed: 60 }), p = s.pirates[0];
+  assert.equal(V.isDrunk(s, p), false); p.drunkUntil = 3;
+  assert.equal(V.isDrunk(s, p), true); assert.equal(V.isDrunk({ ...s, turn: 2 }, p), true); assert.equal(V.isDrunk({ ...s, turn: 3 }, p), false, 'протрезвел');
+  assert.equal(V.isDrunk(s, { ...p, alive: false }), false);
+  assert.ok(fs.existsSync(new URL('../' + V.DRUNK_ICON, import.meta.url)));
+  const ui = fs.readFileSync(new URL('../src/ui.js', import.meta.url), 'utf8'); assert.equal((ui.match(/V\.isDrunk\(s, p\) \? `<img class="drunk"/g) || []).length, 2, 'на поле и в панели');
+  const css = fs.readFileSync(new URL('../style.css', import.meta.url), 'utf8'); assert.match(css, /img\.drunk\{position:absolute;right:-14%;bottom:-14%/);
 });

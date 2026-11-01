@@ -89,3 +89,7 @@ nav button:disabled{opacity:.45;cursor:not-allowed}nav button[aria-pressed=true]
 #continueBtn small{display:block;font-size:.75em;opacity:.8}
 .plate{min-width:0;max-width:100%;overflow:hidden}
 #board{overflow:hidden;contain:layout}
+
+/* v0.5.8: значок «пьян» — справа снизу, напротив номера */
+.cell .pirate img.drunk{position:absolute;right:-14%;bottom:-14%;width:55%;height:55%;z-index:3}
+.crew .tok img.drunk{position:absolute;right:-4px;bottom:-4px;width:50%;height:50%}

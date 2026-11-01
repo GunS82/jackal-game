@@ -47,8 +47,8 @@ function render() {
       const d = document.createElement('i');
       const mark = V.coinMark(s, p, moves, { sel, withCoin, myTurn: myTurn() }), coin = mark === 'coin' || mark === 'treasure', tre = mark === 'treasure';
       d.className = `pirate n${ps.length} i${i}` + (p.id === sel ? ' sel' : '') + (p.trapped ? ' trapped' : '') + (p.inCave ? ' incave' : '');
-      d.title = G.pieceName(s, p) + (coin ? (tre ? ', несёт сокровище' : ', несёт монету') : '') + (p.trapped ? ', в капкане' : '') + (p.inCave ? ', в пещере' : '') + (mark === 'can' ? ', может взять монету' : mark === 'canTreasure' ? ', может взять сокровище' : '');
-      d.innerHTML = pic(pieceImg(p), '●', 'pi') + (coin ? (tre ? pic(treasureImg, '💰', 'pcoin ptre') : pic(coinImg, '🪙', 'pcoin')) : mark === 'can' ? pic(coinImg, '🪙', 'pcoin can') : mark === 'canTreasure' ? pic(treasureImg, '💰', 'pcoin ptre can') : '') + (p.spin ? `<em>${p.spin}</em>` : '') + (p.role === 'exmissionary' ? `<b class="role">${ROLE_BADGE[p.role]}</b>` : '') + (V.pirateNumber(s, p) ? `<b class="num">${V.pirateNumber(s, p)}</b>` : '');
+      d.title = G.pieceName(s, p) + (coin ? (tre ? ', несёт сокровище' : ', несёт монету') : '') + (p.trapped ? ', в капкане' : '') + (p.inCave ? ', в пещере' : '') + (V.isDrunk(s, p) ? ', пьян — пропускает ход' : '') + (mark === 'can' ? ', может взять монету' : mark === 'canTreasure' ? ', может взять сокровище' : '');
+      d.innerHTML = pic(pieceImg(p), '●', 'pi') + (coin ? (tre ? pic(treasureImg, '💰', 'pcoin ptre') : pic(coinImg, '🪙', 'pcoin')) : mark === 'can' ? pic(coinImg, '🪙', 'pcoin can') : mark === 'canTreasure' ? pic(treasureImg, '💰', 'pcoin ptre can') : '') + (p.spin ? `<em>${p.spin}</em>` : '') + (p.role === 'exmissionary' ? `<b class="role">${ROLE_BADGE[p.role]}</b>` : '') + (V.pirateNumber(s, p) ? `<b class="num">${V.pirateNumber(s, p)}</b>` : '') + (V.isDrunk(s, p) ? `<img class="drunk" src="${V.DRUNK_ICON}" alt="пьян">` : '');
       c.append(d);
     });
     const here = targets.filter(m => m.x === x && m.y === y);
@@ -87,7 +87,7 @@ function choose(pid) { sel = pid; const c = state.pirates[pid].carry; withCoin =
 function renderCrew(s, moves) {
   const can = new Set(moves.map(m => m.pid)), el = $('#crew');
   const tok = (t, color) => { const p = s.pirates[t.pid];
-    return `<button class="tok${t.alive ? '' : ' dead'}${t.pid === sel ? ' sel' : ''}" data-pid="${t.pid}" style="--team:${color}" title="${G.pieceName(s, p)}${t.alive ? '' : ' — погиб'}"${t.alive && can.has(t.pid) && myTurn() ? '' : ' disabled'}>${pic(pieceImg(p), '●', 'ti')}${t.num ? `<b>${t.num}</b>` : ''}${p.role === 'exmissionary' ? '<i>✝</i>' : ''}</button>`; };
+    return `<button class="tok${t.alive ? '' : ' dead'}${t.pid === sel ? ' sel' : ''}" data-pid="${t.pid}" style="--team:${color}" title="${G.pieceName(s, p)}${t.alive ? '' : ' — погиб'}"${t.alive && can.has(t.pid) && myTurn() ? '' : ' disabled'}>${pic(pieceImg(p), '●', 'ti')}${t.num ? `<b>${t.num}</b>` : ''}${p.role === 'exmissionary' ? '<i>✝</i>' : ''}${V.isDrunk(s, p) ? `<img class="drunk" src="${V.DRUNK_ICON}" alt="пьян">` : ''}</button>`; };
   el.innerHTML = V.crewPanels(s, { player: net ? net.sess.player : me === 'all' ? null : +me }).map(cp => { const color = G.TEAMS[cp.team].color;
     return `<section class="panel${cp.current ? ' current' : ''}" style="--team:${color}"><header><span>${cp.label}</span><span class="sc">${pic(coinImg, '🪙', 'ci')} ${cp.score}</span></header><div class="toks">${cp.regular.map(t => tok(t, color)).join('')}${cp.chars.length ? '<span class="div"></span>' + cp.chars.map(t => tok(t, color)).join('') : ''}</div></section>`; }).join('');
   el.querySelectorAll('.tok:not([disabled])').forEach(b => b.onclick = () => choose(+b.dataset.pid));
@@ -111,7 +111,7 @@ function goOnline(sess) {
     state = msg.state; net.opponent = msg.opponent; showCode(msg.code);
     if (msg.opponent !== 'waiting' && $('#online').open) $('#online').close();
     render();
-  }, ok => { if (net && net.connected !== ok) { net.connected = ok; if (state) render(); } }, () => { if (!net) return; net.stop(); Net.forget(); net = null; showMenu('Партия больше не существует'); }); // сервер её не знает (перезапуск/уборка): сессию забыть, открыть меню
+  }, ok => { if (net && net.connected !== ok) { net.connected = ok; if (state) render(); } }, () => { if (!net) return; net.stop(); Net.forget(); net = null; sessionStorage.setItem(V.NOTE_KEY, 'Партия больше не существует'); showMenu(); }); // сервер её не знает (перезапуск/уборка): сессию забыть, открыть меню
   window.jackalDropConnection = () => net?.stop.drop(); // для Тестировщика: имитация обрыва связи
 }
 // Покинуть онлайн-партию. Пока партия идёт — только с подтверждения; возвращает false, если игрок передумал.
@@ -132,7 +132,7 @@ function click(x, y, targets) {
   const mine = state.pirates.filter(p => p.alive && p.x === x && p.y === y && p.team === state.current && G.pirateMoves(state, p).length);
   if (mine.length > 1) { plate = { x, y, pids: mine.map(p => p.id) }; if (!mine.some(p => p.id === sel)) sel = null; } // несколько своих — плашка выбора
   else if (mine.length) { plate = null; return choose(mine[0].id); }
-  else { sel = null; plate = null; }
+  else { sel = null; plate = null; notice = V.drunkNotice(state, x, y) || ''; }
   render();
 }
 
@@ -169,13 +169,15 @@ function renderEmpty() {
   $('#me').closest('label').hidden = false; $('#banner').hidden = true;
 }
 // Главное меню; сохранённая локальная партия — только по кнопке «Продолжить».
-function showMenu(note = '') {
+function showMenu(note = sessionStorage.getItem(V.NOTE_KEY) || '') {
   if (!state) renderEmpty();
   const info = V.resumeInfo(localStorage.getItem('jackal-save')), cb = $('#continueBtn');
   cb.hidden = !info; if (info) cb.querySelector('small').textContent = info.label;
   $('#menuNote').textContent = note; $('#menuNote').hidden = !note;
   if (!$('#menu').open) $('#menu').showModal();
 }
+// первое нажатие где угодно снимает заметку (и после перезагрузки она видна до него)
+addEventListener('pointerdown', () => { if (!sessionStorage.getItem(V.NOTE_KEY)) return; sessionStorage.removeItem(V.NOTE_KEY); $('#menuNote').hidden = true; }, true);
 $('#continueBtn').onclick = () => { if (!goLocal()) return; try { state = G.loadState(localStorage.getItem('jackal-save')); sel = null; plate = null; $('#crew').hidden = false; $('#menu').close(); render(); } catch (e) { alert(e.message); } };
 $('#menu').addEventListener('close', () => { if (!state && !net && !$('#online').open) start(V.DEFAULT_MODE); });
 $('#online').addEventListener('close', () => { if (!state && !net) showMenu(); }); // «Отмена» на пустом поле — новая 1v1
