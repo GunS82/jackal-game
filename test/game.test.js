@@ -476,3 +476,16 @@ test('v0.5.14: плашка — фишки кликабельны: стоят п
   assert.match(css, /\.plate\{z-index:5/); assert.match(ui, /btn\.onclick = e => \{ e\.stopPropagation\(\); choose/);
   assert.ok(!/(?:mousedown|pointerdown)[^\n]*plate *=/.test(ui), 'нет закрытия плашки по mousedown/pointerdown');
 });
+
+test('v0.5.15: чёрные на корабле (6,0) — на плашке, в статусе, подсказках и журнале номера 1–3, не id', () => {
+  const s = G.loadState(fs.readFileSync(new URL('../positions/v0512-all-drunk.json', import.meta.url), 'utf8'));
+  const ship = s.pirates.filter(p => p.alive && p.x === 6 && p.y === 0); assert.deepEqual(ship.map(p => p.id), [3, 4, 5]);
+  assert.deepEqual(ship.map(p => V.pirateNumber(s, p)), [1, 2, 3]);
+  assert.deepEqual(ship.map(p => G.pieceName(s, p)), ['Ч1', 'Ч2', 'Ч3']);
+  assert.deepEqual(ship.map(p => V.selectHint(s, p.id)), [1, 2, 3].map(n => `Ваш ход: выбран пират ${n}, выберите клетку`));
+  const ui = fs.readFileSync(new URL('../src/ui.js', import.meta.url), 'utf8');
+  assert.match(ui, /n = V\.pirateNumber\(s, p\); return `<button class="tok/, 'плашка подписана pirateNumber');
+  assert.ok(!/>\$\{(?:id|t\.pid|p\.id)\}</.test(ui), 'нигде не выводится id');
+  const t = G.applyMove(s, G.legalMoves(s).find(m => m.pid === 4));
+  assert.ok(!t.log.some(l => /[БЧ][4-9]|пират [4-9]/.test(l)));
+});

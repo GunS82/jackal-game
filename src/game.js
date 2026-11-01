@@ -464,17 +464,17 @@ export function loadState(text) {
   if (!Array.isArray(raw.pirates)) err('pirates — обязательный массив');
   const count = [0, 0, 0, 0];
   raw.pirates.forEach((p, i) => {
-    if (![0, 1, 2, 3].includes(p?.team)) err(`пират #${i}: team 0..3`);
-    if (p.role != null && !CHARACTERS[p.role] && p.role !== 'exmissionary') err(`пират #${i}: role — одно из ${[...Object.keys(CHARACTERS), 'exmissionary'].join(', ')}`);
+    if (![0, 1, 2, 3].includes(p?.team)) err(`pirates[${i}]: team 0..3`);
+    if (p.role != null && !CHARACTERS[p.role] && p.role !== 'exmissionary') err(`pirates[${i}]: role — одно из ${[...Object.keys(CHARACTERS), 'exmissionary'].join(', ')}`);
     if (!p.role && ++count[p.team] > 3) err(`у команды ${TEAMS[p.team].name} больше 3 пиратов`);
-    if (p.carry != null && ![true, false, 0, 1, TREASURE_VALUE].includes(p.carry)) err(`пират #${i}: carry — 0, 1 (монета) или 3 (сокровище)`);
+    if (p.carry != null && ![true, false, 0, 1, TREASURE_VALUE].includes(p.carry)) err(`pirates[${i}]: carry — 0, 1 (монета) или 3 (сокровище)`);
     const alive = p.alive ?? true;
     let x = p.x, y = p.y;
     if (p.onShip) { x = s.ships[p.team].x; y = s.ships[p.team].y; }
-    if (!activeTeams(mode).includes(p.team)) err(`пират #${i}: команда ${TEAMS[p.team].name} не участвует в режиме ${mode}`);
-    if (alive && !(Number.isInteger(x) && Number.isInteger(y) && inGrid(x, y))) err(`пират #${i}: координаты x,y 0..12 (или onShip: true)`);
-    if (alive && isSea(x, y)) { const sh = shipAt(s, x, y); if (sh >= 0 && !allied(s, sh, p.team)) err(`пират #${i} стоит на вражеском корабле`); }
-    if (p.inCave && !(alive && isIsland(x, y) && s.tiles[key(x, y)].kind === 'cave' && s.tiles[key(x, y)].open)) err(`пират #${i}: inCave только на открытой пещере`);
+    if (!activeTeams(mode).includes(p.team)) err(`pirates[${i}]: команда ${TEAMS[p.team].name} не участвует в режиме ${mode}`);
+    if (alive && !(Number.isInteger(x) && Number.isInteger(y) && inGrid(x, y))) err(`pirates[${i}]: координаты x,y 0..12 (или onShip: true)`);
+    if (alive && isSea(x, y)) { const sh = shipAt(s, x, y); if (sh >= 0 && !allied(s, sh, p.team)) err(`pirates[${i}] стоит на вражеском корабле`); }
+    if (p.inCave && !(alive && isIsland(x, y) && s.tiles[key(x, y)].kind === 'cave' && s.tiles[key(x, y)].open)) err(`pirates[${i}]: inCave только на открытой пещере`);
     const q = { id: 0, team: p.team, x: alive ? x : null, y: alive ? y : null, alive, spin: p.spin ?? 0, trapped: !!p.trapped, drunkUntil: p.drunkUntil ?? 0, carry: p.carry === true ? 1 : p.carry || 0 };
     if (p.role) q.role = p.role; if (p.inCave) q.inCave = true; if (p.gone) q.gone = true;
     s.pirates.push(q);
