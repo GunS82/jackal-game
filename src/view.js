@@ -159,3 +159,6 @@ export function selectHint(s, pid, { myTurn = true } = {}) {
 export const DEFAULT_MODE = '1v1';
 export const LOSE_LOCAL_Q = 'Текущая партия будет потеряна. Загрузить позицию?';
 export const localInProgress = s => !!s && !s.over && (s.turn > 0 || (s.moves?.length ?? 0) > 0);
+
+// v0.5.6: пока открыта плашка выбора и ни один пират с этой клетки не выбран — ходы не подсвечиваются.
+export const plateHidesMoves = (plate, sel) => !!plate && !plate.pids.includes(sel);

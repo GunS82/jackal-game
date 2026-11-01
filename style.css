@@ -78,3 +78,7 @@ nav button:disabled{opacity:.45;cursor:not-allowed}nav button[aria-pressed=true]
 .plate .tok b{position:absolute;min-width:1.2em;line-height:1.2em;border-radius:50%}
 #board{grid-template-rows:repeat(13,minmax(0,1fr))}.plate{min-height:0;overflow:visible}.plate .tok{max-height:100%}
 .cell .pirate .num{width:58%;height:58%;font-size:.8em;font-weight:bold}
+
+/* v0.5.6: фишки плашки — не больше клетки */
+.plate{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));justify-items:center;align-items:center;gap:0;padding:0 2px;border-width:2px;height:100%;box-sizing:border-box}
+.plate .tok{width:auto;height:auto;max-width:92%;max-height:92%;aspect-ratio:1;inline-size:92%;box-sizing:border-box}

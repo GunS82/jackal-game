@@ -34,7 +34,7 @@ const myTurn = () => net ? !state.over && G.controllerOf(state) === net.sess.pla
 
 function render() {
   const s = state, moves = myTurn() ? G.classifyMoves(G.publicState(s)) : []; // подсветка не выдаёт содержимое закрытых клеток
-  const targets = V.targets(moves, { s, sel, withCoin });
+  const targets = V.plateHidesMoves(plate, sel) ? [] : V.targets(moves, { s, sel, withCoin }); // открыта плашка, пират не выбран — без подсветки
   const b = $('#board'); b.innerHTML = '';
   for (let y = 0; y < G.N; y++) for (let x = 0; x < G.N; x++) {
     const c = document.createElement('div'); c.className = 'cell'; c.style.gridArea = `${y + 1} / ${x + 1}`; // явное место: плашка поверх клеток не сдвигает их
@@ -53,7 +53,7 @@ function render() {
     });
     const here = targets.filter(m => m.x === x && m.y === y);
     if (here.length) { const k = V.hlKind(here); c.classList.add('target', 'hl-' + k); c.insertAdjacentHTML('beforeend', pic(hlImg(k), '', 'hl')); }
-    if (V.coinHintAt(moves, x, y, { sel, withCoin })) { c.classList.add('hl-hint'); c.insertAdjacentHTML('beforeend', pic(hlImg('coin'), '', 'hl hint')); }
+    if (targets.length && V.coinHintAt(moves, x, y, { sel, withCoin })) { c.classList.add('hl-hint'); c.insertAdjacentHTML('beforeend', pic(hlImg('coin'), '', 'hl hint')); }
     c.onclick = () => click(x, y, targets);
     b.append(c);
   }
@@ -74,7 +74,7 @@ function render() {
   $('#fileHelp').hidden = !V.showFileHelp({ online: !!net, me });
   if (plate && myTurn()) {
     const pl = V.platePlacement({ x: plate.x, n: plate.pids.length }), d = document.createElement('div');
-    d.className = 'plate side-' + pl.side; d.style.gridRow = String(plate.y + 1); d.style.gridColumn = `${pl.start + 1} / span ${pl.span}`;
+    d.className = 'plate side-' + pl.side; d.style.setProperty('--n', plate.pids.length); d.style.gridRow = String(plate.y + 1); d.style.gridColumn = `${pl.start + 1} / span ${pl.span}`;
     d.innerHTML = plate.pids.map(id => { const p = s.pirates[id], n = V.pirateNumber(s, p); return `<button class="tok${id === sel ? ' sel' : ''}" data-pid="${id}" style="--team:${G.TEAMS[p.team].color}" title="${G.pieceName(s, p)}">${pic(pieceImg(p), '●', 'ti')}${n ? `<b>${n}</b>` : ''}</button>`; }).join('');
     d.querySelectorAll('.tok').forEach(btn => btn.onclick = e => { e.stopPropagation(); choose(+btn.dataset.pid); });
     b.append(d);

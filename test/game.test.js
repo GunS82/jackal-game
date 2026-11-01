@@ -274,3 +274,12 @@ test('v0.5.5: по умолчанию 1v1; меню первым предлаг�
   assert.ok(!/start\('2p'\)/.test(ui)); assert.match(ui, /localInProgress\(state\) \|\| confirm\(V\.LOSE_LOCAL_Q\);[^\n]*\n\s*if \(fileConfirmed\) \$\('#file'\)\.click\(\)/, 'вопрос до окна выбора файла');
   assert.match(ui, /\$\('#menu'\)\.showModal\(\);\n\}/, 'без сессии открывается меню');
 });
+
+test('v0.5.6: открыта плашка и пират не выбран — без подсветки ходов', () => {
+  const plate = { x: 3, y: 4, pids: [0, 1] };
+  assert.equal(V.plateHidesMoves(plate, null), true); assert.equal(V.plateHidesMoves(plate, 2), true, 'выбран пират с другой клетки');
+  assert.equal(V.plateHidesMoves(plate, 1), false); assert.equal(V.plateHidesMoves(null, null), false);
+  const css = fs.readFileSync(new URL('../style.css', import.meta.url), 'utf8');
+  assert.match(css, /\.plate\{display:grid;grid-template-columns:repeat\(var\(--n\)/); // фишка = одна колонка поля
+  for (let n = 2; n <= 6; n++) assert.ok(V.platePlacement({ x: 6, n }).span >= n, 'колонок плашки не меньше фишек');
+});
