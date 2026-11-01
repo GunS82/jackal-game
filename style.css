@@ -3,10 +3,10 @@ header{display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:c
 #board{display:grid;grid-template-columns:repeat(13,1fr);gap:2px;width:min(90vh,95vw);aspect-ratio:1}
 .cell{position:relative;border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:min(2.6vw,20px);overflow:hidden;cursor:pointer;user-select:none}
 .sea{background:#1679a3}.closed{background:#5a8f3a;border:1px solid #3d6a26}.open{background:#e9d3a0;color:#4a3410}
-.cell small{font-size:.45em;line-height:1;text-align:center}.emo{line-height:1}.cell img.tile{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.cell small{position:relative;background:#fff8;border-radius:3px}.ship img.tile{opacity:.9}
+.cell small{font-size:.45em;line-height:1;text-align:center}.emo{line-height:1}.cell img.tile{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.cell small{position:relative;background:#fff8;border-radius:3px}.ship img.tile{opacity:1}
 .arrows{font-weight:bold;font-size:.8em;word-break:break-all;text-align:center}
 .coins{position:absolute;right:1px;top:0;font-size:.5em;background:#ffd700;color:#000;border-radius:6px;padding:0 2px}
-.ship{background:var(--team);outline:2px solid #fff}
+.ship{background:transparent;outline:3px solid var(--team);outline-offset:-3px}
 
 .pirate{position:relative;width:1.3em;height:1.3em;font-size:.6em;font-style:normal;display:flex;align-items:center;justify-content:center}.pirate img.pi{position:absolute;inset:0;width:100%;height:100%}.pirate em{position:relative;font-style:normal;font-weight:bold;font-size:.7em;color:#f0f;text-shadow:0 0 2px #fff}.coins img.ci{width:1em;height:1em;vertical-align:middle}.me{font-size:13px}.me select{font-size:14px}
 .pirate.sel{outline:2px solid #0f0;border-radius:50%}.pirate.trapped{border-style:dashed}
