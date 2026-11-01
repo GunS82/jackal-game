@@ -1,0 +1,49 @@
+{
+ "mode": "1v1",
+ "_note": "Белый пират перед закрытым маяком (6,10). Встаньте на маяк — откройте 4 любые закрытые клетки (верхний ряд закрыт). Бен Ганн (3,3), открытый маяком, присоединится к тому, кто первым на него встанет.",
+ "defaultTile": {
+  "kind": "empty",
+  "open": true
+ },
+ "tiles": {
+  "6,10": {
+   "kind": "lighthouse",
+   "open": false
+  },
+  "3,3": {
+   "kind": "bengunn",
+   "open": false
+  },
+  "4,3": {
+   "kind": "chest3",
+   "open": false
+  },
+  "5,3": {
+   "kind": "rum2",
+   "open": false
+  },
+  "7,3": {
+   "kind": "galleon",
+   "open": false
+  },
+  "8,3": {
+   "kind": "cave",
+   "open": false
+  },
+  "9,3": {
+   "kind": "empty",
+   "open": false
+  }
+ },
+ "pirates": [
+  {
+   "team": 0,
+   "x": 6,
+   "y": 11
+  },
+  {
+   "team": 2,
+   "onShip": true
+  }
+ ]
+}

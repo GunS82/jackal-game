@@ -51,3 +51,6 @@
 - `ship-yellow.svg`
 
 Цвета команд: white (0), yellow (1), black (2), red (3).
+
+## v0.4
+Тайлы assets/tiles/{cave,bengunn,friday,missionary,lighthouse,quake,jungle,grass,caramba,galleon}.svg (от Дизайнера). Значки ролей пиратов и сокровища пока текстовые (ROLE_BADGE в src/assets.js) — можно заменить картинками.

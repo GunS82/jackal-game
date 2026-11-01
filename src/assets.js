@@ -27,6 +27,16 @@ export const ASSETS = {
   rum1:    { emoji: '🍾', label: 'ром 1', img: true },
   rum2:    { emoji: '🍾', label: 'ром 2', img: true },
   rum3:    { emoji: '🍾', label: 'ром 3', img: true },
+  cave:       { emoji: '🕳️', label: 'пещера', img: true },
+  quake:      { emoji: '🌋', label: 'землетрясение', img: true },
+  jungle:     { emoji: '🌳', label: 'джунгли', img: true },
+  grass:      { emoji: '🔥', label: 'трава', img: true },
+  caramba:    { emoji: '🤬', label: 'каррамба', img: true },
+  lighthouse: { emoji: '🗼', label: 'маяк', img: true },
+  bengunn:    { emoji: '🧔', label: 'Бен Ганн', img: true },
+  missionary: { emoji: '🙏', label: 'миссионер', img: true },
+  friday:     { emoji: '🧑', label: 'Пятница', img: true },
+  galleon:    { emoji: '💰', label: 'галеон', img: true },
   sea:     { emoji: '', label: '', img: true },
   ship:    { emoji: '⛵', label: '', img: true },
   coin:    { emoji: '🪙', label: '', img: true },
@@ -46,3 +56,5 @@ export const pirateImg = team => `assets/pieces/pirate-${TEAM_COLOR[team]}.svg`;
 export const shipImg = team => `assets/pieces/ship-${TEAM_COLOR[team]}.svg`;
 export const coinImg = 'assets/pieces/coin.svg';
 export const hlImg = kind => `assets/ui/hl-${kind}.svg`; // слои подсветки ходов: move / death / coin
+// Отдельных фишек персонажей у Дизайнера нет: фишка цвета команды + значок роли.
+export const ROLE_BADGE = { bengunn: '🧔', friday: '🧑', missionary: '🙏', exmissionary: '✝' };

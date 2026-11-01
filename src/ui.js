@@ -1,7 +1,7 @@
 import * as G from './game.js';
 import * as V from './view.js';
-import { ASSETS, ARROW_GLYPH, tileImg, pirateImg, shipImg, coinImg, hlImg } from './assets.js';
-const tileName = t => !t.open ? 'закрытая клетка' : t.kind === 'arrow' ? 'стрелка ' + t.dirs.map(d => ARROW_GLYPH[d.join(',')]).join('') : (t.kind === 'plane' && t.used ? 'пусто' : ASSETS[t.kind]?.label ?? t.kind) + (t.coins ? `, монет: ${t.coins}` : '');
+import { ASSETS, ARROW_GLYPH, ROLE_BADGE, tileImg, pirateImg, shipImg, coinImg, hlImg } from './assets.js';
+const tileName = t => !t.open ? 'закрытая клетка' : t.kind === 'arrow' ? 'стрелка ' + t.dirs.map(d => ARROW_GLYPH[d.join(',')]).join('') : (t.kind === 'plane' && t.used ? 'пусто' : ASSETS[t.kind]?.label ?? t.kind) + (t.coins ? `, монет: ${t.coins}` : '') + (t.treasure ? ', сокровище (3 монеты)' : '');
 const $ = s => document.querySelector(s);
 let state = null, sel = null, withCoin = false, notice = '';
 // Кем играет это устройство: 'all' — hot-seat, 0/1 — «я играю за игрока 1/2» (файловый мультиплеер).
@@ -23,13 +23,14 @@ function tileHTML(t) {
   const lab = t.kind === 'arrow' ? '' : (t.kind === 'plane' && t.used ? 'пусто' : ASSETS[t.kind]?.label ?? t.kind);
   if (lab && !tileImg(t)) h += `<small>${lab}</small>`; // подпись только без картинки
   if (t.coins) h += `<b class="coins">${pic(coinImg, '🪙', 'ci')}${t.coins}</b>`;
+  if (t.treasure) h += `<b class="treasure" title="сокровище">💰${t.treasure > 1 ? t.treasure : ''}</b>`;
   return h;
 }
-const myTurn = () => me === 'all' || G.playerOf(state, state.current) === +me;
+const myTurn = () => me === 'all' || G.controllerOf(state) === +me;
 
 function render() {
   const s = state, moves = myTurn() ? G.classifyMoves(s) : [];
-  const targets = sel == null ? [] : moves.filter(m => (sel === 'ship' ? m.type === 'ship' : m.pid === sel && m.type === 'move') && (sel === 'ship' || !!m.coin === withCoin));
+  const targets = V.targets(moves, { s, sel, withCoin });
   const b = $('#board'); b.innerHTML = '';
   for (let y = 0; y < G.N; y++) for (let x = 0; x < G.N; x++) {
     const c = document.createElement('div'); c.className = 'cell';
@@ -40,9 +41,10 @@ function render() {
     const ps = s.pirates.filter(p => p.alive && p.x === x && p.y === y);
     ps.forEach((p, i) => {
       const d = document.createElement('i');
-      d.className = `pirate n${ps.length} i${i}` + (p.id === sel ? ' sel' : '') + (p.trapped ? ' trapped' : '');
-      d.title = `${G.TEAMS[p.team].name} ${p.id % 3 + 1}` + (V.pirateHasCoin(s, p, { sel, withCoin }) ? ', несёт монету' : '') + (p.trapped ? ', в капкане' : '');
-      d.innerHTML = pic(pirateImg(p.team), '●', 'pi') + (V.pirateHasCoin(s, p, { sel, withCoin }) ? pic(coinImg, '🪙', 'pcoin') : '') + (p.spin ? `<em>${p.spin}</em>` : '');
+      const coin = V.pirateHasCoin(s, p, { sel, withCoin }), tre = p.carry === G.TREASURE_VALUE || (p.id === sel && withCoin === 'T') || (s.pending?.pid === p.id && s.pending.treasure);
+      d.className = `pirate n${ps.length} i${i}` + (p.id === sel ? ' sel' : '') + (p.trapped ? ' trapped' : '') + (p.inCave ? ' incave' : '');
+      d.title = G.pieceName(s, p) + (coin ? (tre ? ', несёт сокровище' : ', несёт монету') : '') + (p.trapped ? ', в капкане' : '') + (p.inCave ? ', в пещере' : '');
+      d.innerHTML = pic(pirateImg(p.team), '●', 'pi') + (coin ? (tre ? '<b class="pcoin ptre">💰</b>' : pic(coinImg, '🪙', 'pcoin')) : '') + (p.spin ? `<em>${p.spin}</em>` : '') + (p.role ? `<b class="role">${ROLE_BADGE[p.role]}</b>` : '');
       c.append(d);
     });
     const here = targets.filter(m => m.x === x && m.y === y);
@@ -60,26 +62,28 @@ function render() {
   const sc = G.sideScores(s);
   $('#score').innerHTML = Object.keys(sc).map(k => `${G.sideName(s, +k)}: <b>${sc[k]}</b>`).join(' · ') + ` · осталось ${G.coinsLeft(s)} · утонуло ${s.lost} · ром: ${G.activeTeams(s.mode).map(t => s.rum[t]).join('/')}`;
   const bs = V.buttons(s, moves, { sel, withCoin, myTurn: myTurn() });
-  for (const [id, b] of [['#shipBtn', bs.ship], ['#coinBtn', bs.coin], ['#reviveBtn', bs.revive]]) { const el = $(id); el.disabled = b.disabled; el.textContent = b.label; el.setAttribute('aria-pressed', b.pressed); el.hidden = false; }
+  for (const [id, b] of [['#shipBtn', bs.ship], ['#coinBtn', bs.coin], ['#reviveBtn', bs.revive], ['#rumBtn', bs.rum]]) { const el = $(id); el.disabled = b.disabled; el.textContent = b.label; el.setAttribute('aria-pressed', b.pressed); el.hidden = false; }
   $('#me').value = me;
   $('#log').textContent = s.log.slice(-6).reverse().join('\n');
-  if (s.pending && myTurn() && sel !== s.pending.pid) { sel = s.pending.pid; withCoin = s.pending.coin; return render(); }
+  if (s.pending && (!s.pending.type || s.pending.type === 'cave') && myTurn() && sel !== s.pending.pid) { sel = s.pending.pid; withCoin = s.pending.treasure ? 'T' : s.pending.coin; return render(); }
   localStorage.setItem('jackal-save', G.serialize(s));
 }
 
 function click(x, y, targets) {
   const hit = targets.find(m => m.x === x && m.y === y);
   if (hit) { const { kind, ...mv } = hit; state = G.applyMove(state, mv); sel = null; withCoin = false; return render(); }
+  if (sel === 'rum') { sel = null; return render(); }
   if (!myTurn()) return;
-  if (state.pending) { const p = state.pirates[state.pending.pid]; if (!(p.x === x && p.y === y)) { notice = V.blockedNotice(state); render(); } return; }
+  if (state.pending) { const p = state.pirates[state.pending.pid]; if (state.pending.type === 'lighthouse' || state.pending.type === 'quake' || !(p.x === x && p.y === y)) { notice = V.blockedNotice(state); render(); } return; }
   const mine = state.pirates.filter(p => p.alive && p.x === x && p.y === y && p.team === state.current && G.pirateMoves(state, p).length);
-  if (mine.length) { const i = mine.findIndex(p => p.id === sel); sel = mine[(i + 1) % mine.length].id; withCoin = !!state.pirates[sel].carry; }
+  if (mine.length) { const i = mine.findIndex(p => p.id === sel); sel = mine[(i + 1) % mine.length].id; const c = state.pirates[sel].carry; withCoin = c === G.TREASURE_VALUE ? 'T' : !!c; }
   else sel = null;
   render();
 }
 
 function start(mode) { state = G.newGame({ mode, seed: Date.now() % 1e9, options: { houseCrocDeath: $('#optCroc').checked } }); sel = null; render(); }
-$('#coinBtn').onclick = () => { withCoin = !withCoin; render(); };
+$('#coinBtn').onclick = () => { withCoin = V.nextCargo(G.legalMoves(state), sel, withCoin); render(); };
+$('#rumBtn').onclick = () => { sel = sel === 'rum' ? null : 'rum'; render(); };
 $('#shipBtn').onclick = () => { sel = sel === 'ship' ? null : 'ship'; render(); };
 $('#reviveBtn').onclick = () => { const m = G.legalMoves(state).find(m => m.type === 'revive'); if (m) { state = G.applyMove(state, m); sel = null; render(); } };
 $('#me').onchange = e => { me = e.target.value; localStorage.setItem('jackal-me', me); sel = null; render(); };

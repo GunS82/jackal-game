@@ -4,7 +4,7 @@ import fs from 'node:fs';
 const pos = (o) => G.loadState(o);
 const mv = (s, f) => { const m = G.legalMoves(s).find(f); assert.ok(m, 'ход не найден'); return G.applyMove(s, m); };
 
-test('набор из 117 клеток и 37 монет', () => { let s = G.newGame({ seed: 3 }); assert.equal(Object.keys(s.tiles).length, 117); assert.equal(G.coinsLeft(s), 37); assert.equal(s.pirates.length, 12); });
+test('набор из 117 клеток: 37 монет + сокровище (3), 4 пещеры по четвертям', () => { let s = G.newGame({ seed: 3 }); assert.equal(Object.keys(s.tiles).length, 117); assert.equal(G.coinsLeft(s), 40); assert.equal(s.pirates.length, 12); });
 test('первый ход: высадка или сдвиг корабля', () => { let s = G.newGame({ seed: 3 }); const ms = G.legalMoves(s); assert.ok(ms.some(m => m.type === 'move' && m.x === 6 && m.y === 11)); assert.equal(ms.filter(m => m.type === 'ship').length, 2); });
 test('лёд повторяет ход', () => { let s = pos({ tiles: { '6,10': { kind: 'ice' } }, pirates: [{ team: 0, x: 6, y: 11 }] }); s = mv(s, m => m.x === 6 && m.y === 10); assert.deepEqual([s.pirates[0].x, s.pirates[0].y], [6, 9]); });
 test('крокодил возвращает назад', () => { let s = pos({ tiles: { '6,10': { kind: 'croc' } }, pirates: [{ team: 0, x: 6, y: 11 }] }); s = mv(s, m => m.x === 6 && m.y === 10); assert.deepEqual([s.pirates[0].x, s.pirates[0].y], [6, 11]); });
@@ -36,10 +36,10 @@ test('картинки стрелок совпадают с логикой (по
 test('spin-coin.json: монета едет с пиратом через вертушку', () => {
   let s = G.loadState(fs.readFileSync('test-positions/spin-coin.json', 'utf8'));
   s = mv(s, m => m.x === 6 && m.y === 9 && m.coin);
-  assert.equal(G.tileAt(s, 6, 10).coins, 0); assert.equal(s.pirates[0].carry, true);
+  assert.equal(G.tileAt(s, 6, 10).coins, 0); assert.equal(s.pirates[0].carry, 1);
   s = mv(s, m => m.via === 'spin' && m.coin); s = mv(s, m => m.via === 'spin' && m.coin); assert.equal(s.pirates[0].spin, 3); assert.equal(G.tileAt(s, 6, 9).coins, 0);
   s = mv(s, m => m.x === 6 && m.y === 8 && m.coin);
-  assert.deepEqual([s.pirates[0].x, s.pirates[0].y, s.pirates[0].carry], [6, 8, false]); assert.equal(G.tileAt(s, 6, 8).coins, 1); assert.equal(G.coinsLeft(s), 1);
+  assert.deepEqual([s.pirates[0].x, s.pirates[0].y, s.pirates[0].carry], [6, 8, 0]); assert.equal(G.tileAt(s, 6, 8).coins, 1); assert.equal(G.coinsLeft(s), 1);
 });
 test('файл неверной версии', () => { assert.throws(() => G.loadState({ version: 99, pirates: [] }), /версия/); });
 
@@ -91,7 +91,7 @@ test('домашнее правило: цепочка на открытого к
   s2 = mv(s2, m => m.x === 6 && m.y === 10); assert.deepEqual([s2.pirates[0].x, s2.pirates[0].y, s2.pirates[0].alive], [6, 11, true]);
 });
 test('конец: majority — больше половины монет у игрока (команды игрока вместе)', () => {
-  let s = pos({ mode: '2p', score: [10, 0, 8, 0], tiles: { '6,11': { coins: 5 } }, pirates: [{ team: 0, x: 6, y: 11 }, { team: 1, onShip: true }] });
+  let s = pos({ mode: '2p', score: [12, 0, 8, 0], tiles: { '6,11': { coins: 5 } }, pirates: [{ team: 0, x: 6, y: 11 }, { team: 1, onShip: true }] });
   s = mv(s, m => m.coin && m.y === 12); assert.equal(s.over, true); assert.equal(s.endReason, 'majority'); assert.deepEqual(G.winner(s), [0]);
 });
 test('конец: allCoins и noPirates', () => {
@@ -147,7 +147,7 @@ test('заголовок: конь — «выберите клетку», стр
 });
 test('кнопки всегда есть, недоступные — disabled; монета — один тоггл', () => {
   const s = G.loadState(fs.readFileSync('test-positions/hl-coin.json', 'utf8')); const moves = G.legalMoves(s);
-  let b = V.buttons(s, moves, {}); assert.deepEqual(Object.keys(b), ['ship', 'coin', 'revive']);
+  let b = V.buttons(s, moves, {}); assert.deepEqual(Object.keys(b), ['ship', 'coin', 'revive', 'rum']);
   assert.equal(b.ship.disabled, true); assert.equal(b.coin.disabled, true); assert.equal(b.revive.disabled, true);
   b = V.buttons(s, moves, { sel: 0 }); assert.equal(b.coin.disabled, false); assert.equal(b.coin.pressed, false);
   const b2 = V.buttons(s, moves, { sel: 0, withCoin: true }); assert.equal(b2.coin.pressed, true); assert.equal(b2.coin.label.length, b.coin.label.length);

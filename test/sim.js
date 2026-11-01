@@ -6,7 +6,7 @@ export function simulate(seed, mode, maxMoves = 600) {
 }
 export function check(s) {
   const total = s.score.reduce((a, b) => a + b, 0) + s.lost + G.coinsLeft(s);
-  if (total !== 37 - (s.mode === '1v1' ? 0 : 0)) throw new Error('монеты не сходятся: ' + total);
+  if (total !== G.TOTAL_COINS) throw new Error('монеты не сходятся: ' + total);
   for (const p of s.pirates) if (p.alive && !G.inGrid(p.x, p.y)) throw new Error('пират вне поля');
 }
 if (process.argv[1]?.endsWith('sim.js')) {
