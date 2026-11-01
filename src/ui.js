@@ -57,7 +57,7 @@ function render() {
     b.append(c);
   }
   const T = G.TEAMS[s.current];
-  const hp = V.headerParts(s, { myTurn: myTurn() }), dot = $('#turnDot');
+  const hp = V.headerParts(s, { myTurn: myTurn(), online: !!net }), dot = $('#turnDot');
   dot.hidden = !!s.over; dot.style.background = T.color;
   if ($('#turnPrefix').textContent !== hp.prefix) $('#turnPrefix').textContent = hp.prefix;
   if ($('#turnText').textContent !== hp.text) $('#turnText').textContent = hp.text;
@@ -73,7 +73,7 @@ function render() {
   if (!net) localStorage.setItem('jackal-save', G.serialize(s));
 }
 function renderBanner() {
-  const el = $('#banner'), b = net && V.onlineBanner(state, { player: net.sess.player, connected: net.connected, opponent: net.opponent });
+  const el = $('#banner'), b = net && V.onlineBanner(state, { player: net.sess.player, connected: net.connected, opponent: net.opponent, gone: net.gone });
   el.hidden = !b; if (!b) return;
   el.className = 'banner b-' + b.kind; el.innerHTML = `<b>${b.title}</b><small>${b.sub}</small>`;
   $('#me').closest('label').hidden = true;
@@ -85,14 +85,21 @@ async function play(mv) {
   try { await Net.move(net.sess, mv); } catch (e) { notice = e.message; render(); }
 }
 function goOnline(sess) {
-  net?.stop(); net = { sess, connected: false, opponent: 'waiting', stop: null };
+  net?.stop(); net = { sess, connected: false, opponent: 'waiting', stop: null, gone: false };
+  state = null; $('#board').innerHTML = ''; $('#me').closest('label').hidden = true; // не показывать прежнюю локальную партию (2p) до прихода состояния 1v1
   net.stop = Net.connect(sess, msg => {
     state = msg.state; net.opponent = msg.opponent; showCode(msg.code);
     if (msg.opponent !== 'waiting' && $('#online').open) $('#online').close();
     render();
-  }, ok => { if (net && net.connected !== ok) { net.connected = ok; if (state) render(); } }, () => { alert('Онлайн-игра не найдена на сервере'); goLocal(); });
+  }, ok => { if (net && net.connected !== ok) { net.connected = ok; if (state) render(); } }, () => { if (!net) return; net.gone = true; net.stop(); Net.forget(); if (state) render(); else renderBanner(); }); // без alert: плашка
+  window.jackalDropConnection = () => net?.stop.drop(); // для Тестировщика: имитация обрыва связи
 }
-function goLocal() { if (net) { net.stop(); Net.leave(net.sess); Net.forget(); net = null; $('#me').closest('label').hidden = false; $('#banner').hidden = true; } }
+// Покинуть онлайн-партию. Пока партия идёт — только с подтверждения; возвращает false, если игрок передумал.
+function goLocal() {
+  if (!net) return true;
+  if (V.needsLeaveConfirm(net, state) && !confirm('Выйти из онлайн-партии? Соперник увидит, что вы вышли.')) return false;
+  net.stop(); if (!net.gone) Net.leave(net.sess); Net.forget(); net = null; $('#me').closest('label').hidden = false; $('#banner').hidden = true; return true;
+}
 function showCode(code) { $('#codeBox').innerHTML = [...code].map(c => `<span>${c}</span>`).join(''); $('#codeArea').hidden = false; }
 
 function click(x, y, targets) {
@@ -107,7 +114,7 @@ function click(x, y, targets) {
   render();
 }
 
-function start(mode) { goLocal(); state = G.newGame({ mode, seed: Date.now() % 1e9, options: { houseCrocDeath: $('#optCroc').checked, archipelagoMissionary: $('#optArch').checked } }); sel = null; render(); }
+function start(mode) { if (!goLocal()) return; state = G.newGame({ mode, seed: Date.now() % 1e9, options: { houseCrocDeath: $('#optCroc').checked, archipelagoMissionary: $('#optArch').checked } }); sel = null; render(); }
 $('#coinBtn').onclick = () => { withCoin = V.nextCargo(G.legalMoves(state), sel, withCoin); render(); };
 $('#rumBtn').onclick = () => { sel = sel === 'rum' ? null : 'rum'; render(); };
 $('#shipBtn').onclick = () => { sel = sel === 'ship' ? null : 'ship'; render(); };
@@ -117,14 +124,14 @@ $('#newBtn').onclick = () => $('#menu').showModal();
 document.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => { start(b.dataset.mode); $('#menu').close(); });
 $('#saveBtn').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([G.serialize(state)], { type: 'application/json' })); a.download = `jackal-hod-${state.turn + 1}.json`; a.click(); };
 $('#loadBtn').onclick = () => $('#file').click();
-$('#file').onchange = async e => { const f = e.target.files[0]; if (!f) return; try { goLocal(); state = G.loadState(await f.text()); sel = null; render(); } catch (err) { alert(err.message); } e.target.value = ''; };
+$('#file').onchange = async e => { const f = e.target.files[0]; if (!f) return; try { if (!goLocal()) return; state = G.loadState(await f.text()); sel = null; render(); } catch (err) { alert(err.message); } e.target.value = ''; };
 // Онлайн-меню
 $('#onlineBtn').onclick = () => { $('#menu').close(); $('#onlineErr').textContent = ''; $('#codeArea').hidden = !net; $('#online').showModal(); };
-$('#createBtn').onclick = async () => { try { goLocal(); const sess = await Net.create({ houseCrocDeath: $('#optCroc').checked, archipelagoMissionary: $('#optArch').checked }); showCode(sess.code); goOnline(sess); } catch (e) { $('#onlineErr').textContent = e.message; } };
+$('#createBtn').onclick = async () => { try { if (!goLocal()) return; const sess = await Net.create({ houseCrocDeath: $('#optCroc').checked, archipelagoMissionary: $('#optArch').checked }); showCode(sess.code); goOnline(sess); } catch (e) { $('#onlineErr').textContent = e.message; } };
 $('#shareBtn').onclick = async () => { const code = net?.sess.code; if (!code) return; const text = `Сыграем в «Шакал»? Код игры: ${code} — ${location.origin}`; try { if (navigator.share) await navigator.share({ text }); else { await navigator.clipboard.writeText(code); $('#onlineErr').textContent = 'Код скопирован'; } } catch {} };
-$('#joinBtn').onclick = async () => { const code = $('#codeIn').value.trim().toUpperCase(); if (!code) return; try { goLocal(); const sess = await Net.join(code); goOnline(sess); $('#online').close(); } catch (e) { $('#onlineErr').textContent = e.message; } };
+$('#joinBtn').onclick = async () => { const code = $('#codeIn').value.trim().toUpperCase(); if (!code) return; try { if (!goLocal()) return; const sess = await Net.join(code); goOnline(sess); $('#online').close(); } catch (e) { $('#onlineErr').textContent = e.message; } };
 $('#codeIn').onkeydown = e => { if (e.key === 'Enter') $('#joinBtn').click(); };
-$('#leaveBtn').onclick = () => { goLocal(); $('#online').close(); try { state = G.loadState(localStorage.getItem('jackal-save')); } catch { return start('2p'); } render(); };
+$('#leaveBtn').onclick = () => { if (!goLocal()) return; $('#online').close(); try { state = G.loadState(localStorage.getItem('jackal-save')); } catch { return start('2p'); } render(); };
 const sess = Net.saved();
 if (sess && location.protocol.startsWith('http')) goOnline(sess);
 else try { const saved = localStorage.getItem('jackal-save'); if (saved) { state = G.loadState(saved); render(); } else start('2p'); } catch { start('2p'); }

@@ -41,13 +41,13 @@ export function coinHintAt(classified, x, y, { sel = null, withCoin = false } = 
   return typeof sel === 'number' && !withCoin && classified.some(m => m.pid === sel && m.coin && m.kind === 'coin' && m.x === x && m.y === y);
 }
 
-export function headerText(s, { myTurn = true } = {}) {
+export function headerText(s, { myTurn = true, online = false } = {}) {
   if (s.over) return resultText(s);
   const T = G.TEAMS[s.current];
   let t = `Ход: ${T.name} (игрок ${G.controllerOf(s) + 1}${s.grass ? ' — трава' : ''}) · №${s.turn + 1}`;
   const w = pendingWhat(s);
   if (w) t += ` · выберите ${w}`;
-  if (!myTurn) t += ' · ждём ход соперника — загрузите его файл';
+  if (!myTurn) t += online ? ' · Ход соперника' : ' · ждём ход соперника — загрузите его файл';
   return t;
 }
 
@@ -100,10 +100,15 @@ export function buttons(s, moves, { sel = null, withCoin = false, myTurn = true 
 }
 
 // Плашка онлайн-игры над полем: {kind, title, sub} или null. kind: wait | lost | left | turn | over.
-export function onlineBanner(s, { player, connected = true, opponent = 'online' } = {}) {
+export function onlineBanner(s, { player, connected = true, opponent = 'online', gone = false } = {}) {
+  if (gone) return { kind: 'left', title: 'Партия закрыта на сервере', sub: 'Начните новую игру или войдите по другому коду' };
   if (!connected) return { kind: 'lost', title: 'Соединение потеряно', sub: 'Переподключаемся…' };
   if (opponent === 'waiting') return { kind: 'wait', title: 'Ждём соперника…', sub: 'Передайте код другу' };
-  if (opponent === 'left' || opponent === 'offline') return { kind: 'left', title: 'Соперник вышел', sub: opponent === 'offline' ? 'Ждём, пока он вернётся' : 'Можно подождать или начать новую игру' };
+  if (opponent === 'left') return { kind: 'left', title: 'Соперник вышел из партии', sub: 'Можно начать новую игру' };
+  if (opponent === 'offline') return { kind: 'left', title: 'Соперник отключился', sub: 'Ждём, пока он вернётся' };
   if (!s || s.over) return null;
   return G.controllerOf(s) === player ? { kind: 'turn', title: 'Ваш ход!', sub: '' } : { kind: 'wait', title: 'Ход соперника', sub: `${G.TEAMS[s.current].name} думают` };
 }
+
+// Нужно ли спрашивать подтверждение, прежде чем покинуть онлайн-партию (и отправить leave).
+export function needsLeaveConfirm(net, s) { return !!net && !net.gone && !!s && !s.over; }

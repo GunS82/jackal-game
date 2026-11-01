@@ -53,7 +53,7 @@ test('сервер: создать/войти по коду, ходы прове
     await A.next(m => m.opponent === 'online' && JSON.stringify(m.state) === JSON.stringify(after.state));
     // явный выход → left
     await post(base, 'leave', { code: a.code, token: b.token }); B2.close();
-    assert.equal(V.onlineBanner(null, { player: 0, opponent: (await A.next(m => m.opponent === 'left')).opponent }).title, 'Соперник вышел');
+    assert.equal(V.onlineBanner(null, { player: 0, opponent: (await A.next(m => m.opponent === 'left')).opponent }).title, 'Соперник вышел из партии');
     A.close();
     // статика отдаётся, лишние файлы — нет
     assert.equal((await fetch(base + '/')).status, 200); assert.equal((await fetch(base + '/src/game.js')).status, 200);
@@ -78,7 +78,7 @@ test('publicState: подсветка не выдаёт закрытого лю�
   assert.equal(V.onlineBanner(s, { player: 0, connected: false }).title, 'Соединение потеряно');
   assert.match(V.onlineBanner(s, { player: 0, connected: false }).sub, /Переподключаемся/);
   assert.equal(V.onlineBanner(s, { player: 0, opponent: 'waiting' }).title, 'Ждём соперника…');
-  assert.equal(V.onlineBanner(s, { player: 0, opponent: 'offline' }).title, 'Соперник вышел');
+  assert.equal(V.onlineBanner(s, { player: 0, opponent: 'offline' }).title, 'Соперник отключился');
   assert.equal(V.onlineBanner({ ...s, over: true }, { player: 0 }), null);
 });
 
@@ -115,4 +115,44 @@ test('v0.5.1: publicState несёт coinsTotalLeft, клиентский coinsL
   delete p.coinsTotalLeft; assert.equal(G.coinsLeft(p), 0); // без поля скрытые монеты не видны — поэтому оно и нужно
   const rooms = new Rooms({ sweepMs: 0 }), a = rooms.create(); rooms.join(a.code);
   assert.equal(rooms.view(rooms.get(a.code), 1).state.coinsTotalLeft, G.TOTAL_COINS);
+});
+
+test('v0.5.2: онлайн всегда 1v1 — каждый игрок управляет ровно одной командой (даже если просят 2p)', async () => {
+  const { rooms, srv, base } = await start();
+  try {
+    for (const body of [{}, { mode: '2p' }, { mode: '4p', options: { mode: '2p' } }]) {
+      const a = (await post(base, 'create', body)).body, s = rooms.get(a.code).state;
+      assert.equal(s.mode, '1v1');
+      assert.deepEqual(G.teamsOfPlayer(s, 0), [0]); assert.deepEqual(G.teamsOfPlayer(s, 1), [2]);
+      assert.match(G.sideName(s, 0), /^Игрок 1 \(Белые\)$/); assert.doesNotMatch(G.sideName(s, 0), /\+/);
+    }
+  } finally { srv.closeAllConnections(); srv.close(); }
+});
+
+test('v0.5.2: выход — комната остаётся, сопернику плашка «Соперник вышел из партии»; заголовок онлайн без «загрузите файл»', async () => {
+  const rooms = new Rooms({ sweepMs: 0 }), a = rooms.create(), b = rooms.join(a.code);
+  rooms.leave(a.code, b.token);
+  const r = rooms.get(a.code), v = rooms.view(r, 0); // комната не удалена
+  assert.equal(v.opponent, 'left'); assert.equal(rooms.seat(r, b.token), 1);
+  assert.deepEqual(V.onlineBanner(v.state, { player: 0, opponent: v.opponent }), { kind: 'left', title: 'Соперник вышел из партии', sub: 'Можно начать новую игру' });
+  assert.equal(V.onlineBanner(v.state, { player: 0, gone: true }).title, 'Партия закрыта на сервере');
+  assert.equal(V.onlineBanner(v.state, { player: 0, connected: false }).title, 'Соединение потеряно');
+  const h = V.headerText(v.state, { myTurn: false, online: true });
+  assert.match(h, /Ход соперника/); assert.doesNotMatch(h, /файл/);
+  assert.match(V.headerText(v.state, { myTurn: false }), /загрузите его файл/);
+});
+
+test('v0.5.2: сессия онлайн во вкладке (sessionStorage), не в общем localStorage; выход только с подтверждением', async () => {
+  const mk = () => { const m = new Map(); return { getItem: k => m.has(k) ? m.get(k) : null, setItem: (k, v) => m.set(k, String(v)), removeItem: k => m.delete(k), m }; };
+  const tab1 = mk(), tab2 = mk(), shared = mk(); shared.setItem('jackal-online', JSON.stringify({ code: 'OLD1', token: 't', player: 1 }));
+  globalThis.localStorage = shared;
+  const Net = await import('../src/net.js');
+  globalThis.sessionStorage = tab1; Net.remember({ code: 'AAAA', token: 'x', player: 0 });
+  globalThis.sessionStorage = tab2; assert.equal(Net.saved(), null, 'вторая вкладка не видит сессию первой (и старый общий ключ)');
+  globalThis.sessionStorage = tab1; assert.equal(Net.saved().code, 'AAAA', 'после перезагрузки вкладки сессия на месте');
+  Net.forget(); assert.equal(Net.saved(), null); assert.equal(shared.getItem('jackal-online'), null);
+  const s = G.newGame({ mode: '1v1', seed: 1 });
+  assert.equal(V.needsLeaveConfirm(null, s), false); assert.equal(V.needsLeaveConfirm({ gone: false }, s), true);
+  assert.equal(V.needsLeaveConfirm({ gone: true }, s), false); assert.equal(V.needsLeaveConfirm({ gone: false }, { ...s, over: true }), false);
+  delete globalThis.localStorage; delete globalThis.sessionStorage;
 });

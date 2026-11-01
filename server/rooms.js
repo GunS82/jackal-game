@@ -2,6 +2,7 @@
 import crypto from 'node:crypto';
 import * as G from '../src/game.js';
 const ABC = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // без похожих 0/O, 1/I
+export const ONLINE_MODE = '1v1'; // онлайн: один человек = одна команда (решение Геннадия), режим из запроса игнорируется
 export class Rooms {
   // now — часы (для тестов); idleMs — удалять комнату без активности; overMs — законченную партию; sweepMs — период уборки (0 — без таймера)
   constructor({ codeLen = 4, now = Date.now, idleMs = 24 * 3600e3, overMs = 3600e3, sweepMs = 10 * 60e3 } = {}) {
@@ -16,9 +17,10 @@ export class Rooms {
   stop() { clearInterval(this.timer); }
   code() { let c; do { c = Array.from(crypto.randomBytes(this.codeLen), b => ABC[b % ABC.length]).join(''); } while (this.rooms.has(c)); return c; }
   create(options = {}) {
+    if (!options || typeof options !== 'object') options = {};
     const opts = {}; for (const k of Object.keys(G.DEFAULT_OPTIONS)) if (typeof options[k] === 'boolean') opts[k] = options[k];
     const code = this.code(), token = crypto.randomUUID();
-    const room = { code, state: G.newGame({ mode: '1v1', seed: crypto.randomInt(1e9), options: opts }), seats: [{ token, online: false, left: false }, null], subs: new Set(), updated: this.now(), overAt: null };
+    const room = { code, state: G.newGame({ mode: ONLINE_MODE, seed: crypto.randomInt(1e9), options: opts }), seats: [{ token, online: false, left: false }, null], subs: new Set(), updated: this.now(), overAt: null };
     this.rooms.set(code, room); return { code, token, player: 0 };
   }
   get(code) { const r = this.rooms.get(String(code || '').toUpperCase().trim()); if (!r) throw httpErr(404, 'Игра с таким кодом не найдена'); return r; }

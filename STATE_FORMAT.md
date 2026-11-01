@@ -47,3 +47,5 @@
 Сервер рассылает `{type:'state', code, player, opponent, state}`, где `opponent` — `waiting` | `online` | `offline` | `left`, а `state` — публичное состояние (`G.publicState`): закрытые клетки `{kind:'empty', open:false, coins:0}`, `seed: null`. API: `POST /api/create {options}` → `{code, token, player:0}`, `POST /api/join {code}` → `{token, player:1}`, `POST /api/move {code, token, move}`, `POST /api/leave {code, token}`, `GET /api/events?code&token` (SSE).
 
 - v0.5.1: в публичном состоянии есть `coinsTotalLeft` — общее число неразыгранных монет (считает сервер, без раскладки по клеткам). Комнаты удаляются после 24 ч простоя или через 1 ч после конца партии.
+
+- v0.5.2: сессия хранится в sessionStorage (`jackal-online`, своя у каждой вкладки). Режим комнаты всегда `1v1`, поле mode в запросе игнорируется. `leave` комнату не удаляет — соперник получает `opponent: "left"`.
