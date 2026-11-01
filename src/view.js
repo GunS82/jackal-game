@@ -154,3 +154,8 @@ export function selectHint(s, pid, { myTurn = true } = {}) {
   const n = pirateNumber(s, p);
   return `Ваш ход: выбран ${n ? 'пират ' + n : G.CHARACTERS[p.role] ?? G.pieceName(s, p)}, выберите клетку`;
 }
+
+// v0.5.5: локальная партия по умолчанию — 1 на 1 (Белые против Чёрных); идёт ли она (сделан хотя бы один ход).
+export const DEFAULT_MODE = '1v1';
+export const LOSE_LOCAL_Q = 'Текущая партия будет потеряна. Загрузить позицию?';
+export const localInProgress = s => !!s && !s.over && (s.turn > 0 || (s.moves?.length ?? 0) > 0);

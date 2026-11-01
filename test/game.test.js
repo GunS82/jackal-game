@@ -259,3 +259,18 @@ test('v0.5.5: номер пирата на фишке, две панели (те
   assert.equal(V.selectHint(s, w[1].id), 'Ваш ход: выбран пират 2, выберите клетку');
   assert.equal(V.selectHint(s, w[1].id, { myTurn: false }), null); assert.equal(V.selectHint(s, null), null);
 });
+
+test('v0.5.5: по умолчанию 1v1; меню первым предлагает 1v1; подтверждение перед загрузкой, если партия идёт; новая вкладка — меню', () => {
+  assert.equal(V.DEFAULT_MODE, '1v1');
+  const s = G.newGame({ mode: V.DEFAULT_MODE, seed: 1 });
+  assert.deepEqual(G.activeTeams(s.mode), [0, 2]); // Белые против Чёрных
+  const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  const modes = [...html.matchAll(/data-mode="(\w+)"/g)].map(m => m[1]); assert.equal(modes[0], '1v1'); assert.ok(!modes.includes('4p'));
+  assert.equal(V.localInProgress(s), false, 'новая партия — без вопроса');
+  const m = G.legalMoves(s)[0]; const s2 = G.applyMove(s, m);
+  assert.equal(V.localInProgress(s2), true); assert.equal(V.localInProgress({ ...s2, over: true }), false); assert.equal(V.localInProgress(null), false);
+  assert.match(V.LOSE_LOCAL_Q, /Текущая партия будет потеряна/);
+  const ui = fs.readFileSync(new URL('../src/ui.js', import.meta.url), 'utf8');
+  assert.ok(!/start\('2p'\)/.test(ui)); assert.match(ui, /localInProgress\(state\) \|\| confirm\(V\.LOSE_LOCAL_Q\);[^\n]*\n\s*if \(fileConfirmed\) \$\('#file'\)\.click\(\)/, 'вопрос до окна выбора файла');
+  assert.match(ui, /\$\('#menu'\)\.showModal\(\);\n\}/, 'без сессии открывается меню');
+});

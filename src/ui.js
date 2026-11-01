@@ -147,7 +147,11 @@ document.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => { start(
 $('#saveBtn').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([G.serialize(state)], { type: 'application/json' })); a.download = `jackal-hod-${state.turn + 1}.json`; a.click(); };
 // онлайн: спросить ДО выбора файла; сам выход — после того как файл выбран
 let fileConfirmed = false;
-$('#loadBtn').onclick = () => { fileConfirmed = !V.needsLeaveConfirm(net, state) || confirm(LEAVE_Q); if (fileConfirmed) $('#file').click(); };
+$('#loadBtn').onclick = () => {
+  if (net) fileConfirmed = !V.needsLeaveConfirm(net, state) || confirm(LEAVE_Q);
+  else fileConfirmed = !V.localInProgress(state) || confirm(V.LOSE_LOCAL_Q); // локально: спросить ДО окна выбора файла
+  if (fileConfirmed) $('#file').click();
+};
 $('#file').onchange = async e => { const f = e.target.files[0]; if (!f) return; try { if (!goLocal(fileConfirmed)) return; state = G.loadState(await f.text()); sel = null; render(); } catch (err) { alert(err.message); } e.target.value = ''; };
 // Онлайн-меню
 $('#onlineBtn').onclick = () => { $('#menu').close(); $('#onlineErr').textContent = ''; $('#codeArea').hidden = !net; $('#online').showModal(); };
@@ -155,7 +159,10 @@ $('#createBtn').onclick = async () => { try { if (!goLocal()) return; const sess
 $('#shareBtn').onclick = async () => { const code = net?.sess.code; if (!code) return; const text = `Сыграем в «Шакал»? Код игры: ${code} — ${location.origin}`; try { if (navigator.share) await navigator.share({ text }); else { await navigator.clipboard.writeText(code); $('#onlineErr').textContent = 'Код скопирован'; } } catch {} };
 $('#joinBtn').onclick = async () => { const code = $('#codeIn').value.trim().toUpperCase(); if (!code) return; try { if (!goLocal()) return; const sess = await Net.join(code); goOnline(sess); $('#online').close(); } catch (e) { $('#onlineErr').textContent = e.message; } };
 $('#codeIn').onkeydown = e => { if (e.key === 'Enter') $('#joinBtn').click(); };
-$('#leaveBtn').onclick = () => { if (!goLocal()) return; $('#online').close(); try { state = G.loadState(localStorage.getItem('jackal-save')); } catch { return start('2p'); } render(); };
+$('#leaveBtn').onclick = () => { if (!goLocal()) return; $('#online').close(); try { state = G.loadState(localStorage.getItem('jackal-save')); } catch { return start(V.DEFAULT_MODE); } render(); };
 const sess = Net.saved();
 if (sess && location.protocol.startsWith('http')) goOnline(sess);
-else try { const saved = localStorage.getItem('jackal-save'); if (saved) { state = G.loadState(saved); render(); } else start('2p'); } catch { start('2p'); }
+else { // новая вкладка без онлайн-сессии: за меню видна сохранённая (или новая 1v1) партия, открыто главное меню
+  try { const saved = localStorage.getItem('jackal-save'); if (saved) { state = G.loadState(saved); render(); } else start(V.DEFAULT_MODE); } catch { start(V.DEFAULT_MODE); }
+  $('#menu').showModal();
+}
