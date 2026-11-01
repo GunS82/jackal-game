@@ -127,3 +127,30 @@ export function crewPanel(s, team) {
   const chars = mine.filter(p => p.alive && CHAR_ROLES.includes(p.role)).sort((a, b) => CHAR_ROLES.indexOf(a.role) - CHAR_ROLES.indexOf(b.role)).map(p => ({ pid: p.id, num: null, alive: true, role: p.role }));
   return { team, regular, chars };
 }
+
+// v0.5.5 (design/fan.png). Номер обычного пирата (1–3) для кружка на фишке; у персонажей номера нет.
+export function pirateNumber(s, p) { if (p.role) return null; const i = s.pirates.filter(q => q.team === p.team && !q.role).indexOf(p); return i >= 0 && i < 3 ? i + 1 : null; }
+// Плашка выбора пирата на клетке: выезжает в сторону, где больше свободных клеток, у края — переворачивается.
+// x — столбец клетки, n — сколько пиратов, N — ширина поля. Возвращает side, start (первый столбец), span (столбцов).
+export function platePlacement({ x, n, N = G.N }) {
+  const span = Math.min(Math.max(n, 2), N - 1), left = x, right = N - 1 - x;
+  let side = right >= left ? 'right' : 'left';
+  if (side === 'right' && right < span && left > right) side = 'left';
+  if (side === 'left' && left < span && right > left) side = 'right';
+  const start = Math.max(0, Math.min(N - span, side === 'right' ? x + 1 : x - span));
+  return { side, start, span };
+}
+// Панели обеих сторон (или всех команд в 4p): своя — «Вы» (онлайн/файлы), текущая обведена золотом.
+export function crewPanels(s, { player = null } = {}) {
+  return G.activeTeams(s.mode).map(t => {
+    const pl = G.playerOf(s, t), mine = player != null && pl === player;
+    const label = player == null ? G.TEAMS[t].name : mine ? 'Вы' : 'Соперник';
+    return { team: t, label, score: s.score[t], current: !s.over && t === s.current, mine, ...crewPanel(s, t) };
+  });
+}
+// Строка-подсказка под полем при выбранном пирате.
+export function selectHint(s, pid, { myTurn = true } = {}) {
+  if (typeof pid !== 'number' || !myTurn) return null; const p = s.pirates[pid]; if (!p) return null;
+  const n = pirateNumber(s, p);
+  return `Ваш ход: выбран ${n ? 'пират ' + n : G.CHARACTERS[p.role] ?? G.pieceName(s, p)}, выберите клетку`;
+}

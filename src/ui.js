@@ -4,6 +4,7 @@ import * as Net from './net.js';
 import { ASSETS, ARROW_GLYPH, ROLE_BADGE, tileImg, pirateImg, pieceImg, shipImg, coinImg, treasureImg, hlImg } from './assets.js';
 const tileName = t => !t.open ? 'закрытая клетка' : t.kind === 'arrow' ? 'стрелка ' + t.dirs.map(d => ARROW_GLYPH[d.join(',')]).join('') : (t.kind === 'plane' && t.used ? 'пусто' : ASSETS[t.kind]?.label ?? t.kind) + (t.coins ? `, монет: ${t.coins}` : '') + (t.treasure ? ', сокровище (3 монеты)' : '');
 const $ = s => document.querySelector(s);
+let plate = null; // плашка выбора пирата: { x, y, pids }
 let state = null, sel = null, withCoin = false, notice = '';
 // Кем играет это устройство: 'all' — hot-seat, 0/1 — «я играю за игрока 1/2» (файловый мультиплеер).
 let me = localStorage.getItem('jackal-me') ?? 'all';
@@ -36,7 +37,7 @@ function render() {
   const targets = V.targets(moves, { s, sel, withCoin });
   const b = $('#board'); b.innerHTML = '';
   for (let y = 0; y < G.N; y++) for (let x = 0; x < G.N; x++) {
-    const c = document.createElement('div'); c.className = 'cell';
+    const c = document.createElement('div'); c.className = 'cell'; c.style.gridArea = `${y + 1} / ${x + 1}`; // явное место: плашка поверх клеток не сдвигает их
     const t = G.tileAt(s, x, y);
     if (t) { c.classList.add(t.open ? 'open' : 'closed', 'k-' + t.kind); c.innerHTML = tileHTML(t); const name = tileName(t); c.title = name; c.setAttribute('aria-label', name); } else c.classList.add('sea');
     const sh = G.shipAt(s, x, y);
@@ -47,7 +48,7 @@ function render() {
       const mark = V.coinMark(s, p, moves, { sel, withCoin, myTurn: myTurn() }), coin = mark === 'coin' || mark === 'treasure', tre = mark === 'treasure';
       d.className = `pirate n${ps.length} i${i}` + (p.id === sel ? ' sel' : '') + (p.trapped ? ' trapped' : '') + (p.inCave ? ' incave' : '');
       d.title = G.pieceName(s, p) + (coin ? (tre ? ', несёт сокровище' : ', несёт монету') : '') + (p.trapped ? ', в капкане' : '') + (p.inCave ? ', в пещере' : '') + (mark === 'can' ? ', может взять монету' : mark === 'canTreasure' ? ', может взять сокровище' : '');
-      d.innerHTML = pic(pieceImg(p), '●', 'pi') + (coin ? (tre ? pic(treasureImg, '💰', 'pcoin ptre') : pic(coinImg, '🪙', 'pcoin')) : mark === 'can' ? pic(coinImg, '🪙', 'pcoin can') : mark === 'canTreasure' ? pic(treasureImg, '💰', 'pcoin ptre can') : '') + (p.spin ? `<em>${p.spin}</em>` : '') + (p.role === 'exmissionary' ? `<b class="role">${ROLE_BADGE[p.role]}</b>` : '');
+      d.innerHTML = pic(pieceImg(p), '●', 'pi') + (coin ? (tre ? pic(treasureImg, '💰', 'pcoin ptre') : pic(coinImg, '🪙', 'pcoin')) : mark === 'can' ? pic(coinImg, '🪙', 'pcoin can') : mark === 'canTreasure' ? pic(treasureImg, '💰', 'pcoin ptre can') : '') + (p.spin ? `<em>${p.spin}</em>` : '') + (p.role === 'exmissionary' ? `<b class="role">${ROLE_BADGE[p.role]}</b>` : '') + (V.pirateNumber(s, p) ? `<b class="num">${V.pirateNumber(s, p)}</b>` : '');
       c.append(d);
     });
     const here = targets.filter(m => m.x === x && m.y === y);
@@ -61,7 +62,7 @@ function render() {
   dot.hidden = !!s.over; dot.style.background = T.color;
   if ($('#turnPrefix').textContent !== hp.prefix) $('#turnPrefix').textContent = hp.prefix;
   if ($('#turnText').textContent !== hp.text) $('#turnText').textContent = hp.text;
-  $('#status').textContent = notice || V.coinHint(moves, { sel, withCoin }) || ''; notice = '';
+  $('#status').textContent = notice || V.coinHint(moves, { sel, withCoin }) || V.selectHint(s, sel, { myTurn: myTurn() }) || ''; notice = '';
   const sc = G.sideScores(s);
   $('#score').innerHTML = Object.keys(sc).map(k => `${G.sideName(s, +k)}: <b>${sc[k]}</b>`).join(' · ') + ` · осталось ${G.coinsLeft(s)} · утонуло ${s.lost} · ром: ${G.activeTeams(s.mode).map(t => s.rum[t]).join('/')}`;
   const bs = V.buttons(s, moves, { sel, withCoin, myTurn: myTurn() });
@@ -71,17 +72,25 @@ function render() {
   if (s.pending && (!s.pending.type || s.pending.type === 'cave') && myTurn() && sel !== s.pending.pid) { sel = s.pending.pid; withCoin = s.pending.treasure ? 'T' : s.pending.coin; return render(); }
   const ya = $('#youAre'); ya.hidden = !net; if (net) { ya.textContent = V.youAreText(s, net.sess.player); ya.style.borderColor = G.TEAMS[G.teamsOfPlayer(s, net.sess.player)[0]]?.color ?? ''; }
   $('#fileHelp').hidden = !V.showFileHelp({ online: !!net, me });
+  if (plate && myTurn()) {
+    const pl = V.platePlacement({ x: plate.x, n: plate.pids.length }), d = document.createElement('div');
+    d.className = 'plate side-' + pl.side; d.style.gridRow = String(plate.y + 1); d.style.gridColumn = `${pl.start + 1} / span ${pl.span}`;
+    d.innerHTML = plate.pids.map(id => { const p = s.pirates[id], n = V.pirateNumber(s, p); return `<button class="tok${id === sel ? ' sel' : ''}" data-pid="${id}" style="--team:${G.TEAMS[p.team].color}" title="${G.pieceName(s, p)}">${pic(pieceImg(p), '●', 'ti')}${n ? `<b>${n}</b>` : ''}</button>`; }).join('');
+    d.querySelectorAll('.tok').forEach(btn => btn.onclick = e => { e.stopPropagation(); choose(+btn.dataset.pid); });
+    b.append(d);
+  } else plate = null;
   renderCrew(s, moves);
   renderBanner();
   if (!net) localStorage.setItem('jackal-save', G.serialize(s));
 }
+function choose(pid) { sel = pid; const c = state.pirates[pid].carry; withCoin = c === G.TREASURE_VALUE ? 'T' : !!c; plate = null; render(); }
 function renderCrew(s, moves) {
-  const cp = V.crewPanel(s, s.current), el = $('#crew'), color = G.TEAMS[s.current].color, can = new Set(moves.map(m => m.pid));
-  const tok = t => { const p = s.pirates[t.pid];
+  const can = new Set(moves.map(m => m.pid)), el = $('#crew');
+  const tok = (t, color) => { const p = s.pirates[t.pid];
     return `<button class="tok${t.alive ? '' : ' dead'}${t.pid === sel ? ' sel' : ''}" data-pid="${t.pid}" style="--team:${color}" title="${G.pieceName(s, p)}${t.alive ? '' : ' — погиб'}"${t.alive && can.has(t.pid) && myTurn() ? '' : ' disabled'}>${pic(pieceImg(p), '●', 'ti')}${t.num ? `<b>${t.num}</b>` : ''}${p.role === 'exmissionary' ? '<i>✝</i>' : ''}</button>`; };
-  el.innerHTML = cp.regular.map(tok).join('') + (cp.chars.length ? '<span class="div"></span>' + cp.chars.map(tok).join('') : '');
-  el.hidden = !!s.over;
-  el.querySelectorAll('.tok:not([disabled])').forEach(b => b.onclick = () => { sel = +b.dataset.pid; const c = state.pirates[sel].carry; withCoin = c === G.TREASURE_VALUE ? 'T' : !!c; render(); });
+  el.innerHTML = V.crewPanels(s, { player: net ? net.sess.player : me === 'all' ? null : +me }).map(cp => { const color = G.TEAMS[cp.team].color;
+    return `<section class="panel${cp.current ? ' current' : ''}" style="--team:${color}"><header><span>${cp.label}</span><span class="sc">${pic(coinImg, '🪙', 'ci')} ${cp.score}</span></header><div class="toks">${cp.regular.map(t => tok(t, color)).join('')}${cp.chars.length ? '<span class="div"></span>' + cp.chars.map(t => tok(t, color)).join('') : ''}</div></section>`; }).join('');
+  el.querySelectorAll('.tok:not([disabled])').forEach(b => b.onclick = () => choose(+b.dataset.pid));
 }
 function renderBanner() {
   const el = $('#banner'), b = net && V.onlineBanner(state, { player: net.sess.player, connected: net.connected, opponent: net.opponent, gone: net.gone });
@@ -90,7 +99,7 @@ function renderBanner() {
   $('#me').closest('label').hidden = true;
 }
 // Ход: локально применяем, онлайн — отправляем на сервер (он проверит и разошлёт состояние).
-async function play(mv) {
+async function play(mv) { plate = null;
   sel = null; withCoin = false;
   if (!net) { state = G.applyMove(state, mv); return render(); }
   try { await Net.move(net.sess, mv); } catch (e) { notice = e.message; render(); }
@@ -121,8 +130,9 @@ function click(x, y, targets) {
   if (!myTurn()) return;
   if (state.pending) { const p = state.pirates[state.pending.pid]; if (state.pending.type === 'lighthouse' || state.pending.type === 'quake' || !(p.x === x && p.y === y)) { notice = V.blockedNotice(state); render(); } return; }
   const mine = state.pirates.filter(p => p.alive && p.x === x && p.y === y && p.team === state.current && G.pirateMoves(state, p).length);
-  if (mine.length) { const i = mine.findIndex(p => p.id === sel); sel = mine[(i + 1) % mine.length].id; const c = state.pirates[sel].carry; withCoin = c === G.TREASURE_VALUE ? 'T' : !!c; }
-  else sel = null;
+  if (mine.length > 1) { plate = { x, y, pids: mine.map(p => p.id) }; if (!mine.some(p => p.id === sel)) sel = null; } // несколько своих — плашка выбора
+  else if (mine.length) { plate = null; return choose(mine[0].id); }
+  else { sel = null; plate = null; }
   render();
 }
 

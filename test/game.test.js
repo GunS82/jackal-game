@@ -234,3 +234,28 @@ test('v0.5.4: панель команды — пираты 1–3, за разд�
   const fs = await import('node:fs');
   for (const r of A.CHAR_TOKENS) for (const c of A.TEAM_COLOR) assert.ok(fs.existsSync(new URL(`../assets/pieces/${r}-${c}.svg`, import.meta.url)), r + c);
 });
+
+test('v0.5.5: плашка выбора выезжает в сторону свободного места, у края переворачивается', () => {
+  const N = 13;
+  assert.deepEqual(V.platePlacement({ x: 2, n: 3, N }), { side: 'right', start: 3, span: 3 });
+  assert.deepEqual(V.platePlacement({ x: 10, n: 3, N }), { side: 'left', start: 7, span: 3 });
+  assert.deepEqual(V.platePlacement({ x: 0, n: 3, N }), { side: 'right', start: 1, span: 3 }); // левый край
+  assert.deepEqual(V.platePlacement({ x: 12, n: 3, N }), { side: 'left', start: 9, span: 3 }); // правый край
+  assert.deepEqual(V.platePlacement({ x: 6, n: 2, N }), { side: 'right', start: 7, span: 2 }); // середина — вправо
+  assert.equal(V.platePlacement({ x: 4, n: 3, N: 7 }).side, 'left'); // как в макете: справа места мало
+  assert.equal(V.platePlacement({ x: 2, n: 3, N: 5 }).side, 'right');
+  for (let x = 0; x < N; x++) for (let n = 2; n <= 6; n++) { const p = V.platePlacement({ x, n, N }); assert.ok(p.start >= 0 && p.start + p.span <= N); assert.ok(x < p.start || x >= p.start + p.span, `x=${x} n=${n}: плашка не закрывает клетку`); }
+});
+
+test('v0.5.5: номер пирата на фишке, две панели (текущая отмечена), подсказка выбора', () => {
+  const s = G.newGame({ mode: '1v1', seed: 2 });
+  const w = s.pirates.filter(p => p.team === 0), b = s.pirates.filter(p => p.team === 2);
+  assert.deepEqual(w.map(p => V.pirateNumber(s, p)), [1, 2, 3]); assert.deepEqual(b.map(p => V.pirateNumber(s, p)), [1, 2, 3]);
+  assert.equal(V.pirateNumber(s, { ...w[0], role: 'friday' }), null);
+  const ps = V.crewPanels(s, { player: 1 });
+  assert.deepEqual(ps.map(p => [p.team, p.label, p.current]), [[0, 'Соперник', true], [2, 'Вы', false]]);
+  assert.deepEqual(V.crewPanels(s).map(p => p.label), ['Белые', 'Чёрные']);
+  assert.equal(V.crewPanels({ ...s, over: true }).some(p => p.current), false);
+  assert.equal(V.selectHint(s, w[1].id), 'Ваш ход: выбран пират 2, выберите клетку');
+  assert.equal(V.selectHint(s, w[1].id, { myTurn: false }), null); assert.equal(V.selectHint(s, null), null);
+});
