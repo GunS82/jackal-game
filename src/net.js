@@ -15,21 +15,22 @@ export const move = (sess, m) => post('move', { code: sess.code, token: sess.tok
 export const leave = sess => post('leave', { code: sess.code, token: sess.token }).catch(() => {});
 // onState(msg) — новое состояние; onConn(bool) — связь есть/нет.
 export function connect(sess, onState, onConn, onGone = () => {}) {
-  let es = null, stopped = false;
+  let es = null, stopped = false, tries = 0;
+  const retry = () => setTimeout(() => !stopped && open(), Math.min(500 * 2 ** tries++, 8000)); // 0.5 с, 1, 2, 4, 8…
   const open = () => {
     es = new EventSource(`/api/events?code=${encodeURIComponent(sess.code)}&token=${encodeURIComponent(sess.token)}`);
-    es.onopen = () => onConn(true);
+    es.onopen = () => { tries = 0; onConn(true); };
     es.onmessage = e => { onConn(true); onState(JSON.parse(e.data)); };
     es.onerror = async () => {
       onConn(false);
       if (es.readyState !== EventSource.CLOSED || stopped) return; // браузер переподключится сам
       try { const r = await fetch(`/api/events?code=${encodeURIComponent(sess.code)}&token=${encodeURIComponent(sess.token)}`, { method: 'HEAD' }); if (r.status === 404 || r.status === 403) return onGone(); } catch {}
-      setTimeout(() => !stopped && open(), 3000);
+      retry();
     };
   };
   open();
   const stop = () => { stopped = true; es?.close(); };
-  // Для проверки: оборвать связь вручную — плашка «Соединение потеряно», через 3 с переподключение.
-  stop.drop = () => { es?.close(); onConn(false); setTimeout(() => !stopped && open(), 3000); };
+  // Для проверки: оборвать связь вручную — плашка «Соединение потеряно», первая попытка переподключения через 0.5 с.
+  stop.drop = () => { es?.close(); onConn(false); retry(); };
   return stop;
 }

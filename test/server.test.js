@@ -133,7 +133,7 @@ test('v0.5.2: выход — комната остаётся, сопернику
   const rooms = new Rooms({ sweepMs: 0 }), a = rooms.create(), b = rooms.join(a.code);
   rooms.leave(a.code, b.token);
   const r = rooms.get(a.code), v = rooms.view(r, 0); // комната не удалена
-  assert.equal(v.opponent, 'left'); assert.equal(rooms.seat(r, b.token), 1);
+  assert.equal(v.opponent, 'left'); assert.throws(() => rooms.seat(r, b.token), /токен/); // v0.5.3: место освобождено
   assert.deepEqual(V.onlineBanner(v.state, { player: 0, opponent: v.opponent }), { kind: 'left', title: 'Соперник вышел из партии', sub: 'Можно начать новую игру' });
   assert.equal(V.onlineBanner(v.state, { player: 0, gone: true }).title, 'Партия закрыта на сервере');
   assert.equal(V.onlineBanner(v.state, { player: 0, connected: false }).title, 'Соединение потеряно');
@@ -155,4 +155,46 @@ test('v0.5.2: сессия онлайн во вкладке (sessionStorage), н
   assert.equal(V.needsLeaveConfirm(null, s), false); assert.equal(V.needsLeaveConfirm({ gone: false }, s), true);
   assert.equal(V.needsLeaveConfirm({ gone: true }, s), false); assert.equal(V.needsLeaveConfirm({ gone: false }, { ...s, over: true }), false);
   delete globalThis.localStorage; delete globalThis.sessionStorage;
+});
+
+test('v0.5.3: вышедший освобождает место — вход по коду занимает его за ту же команду, партия продолжается', async () => {
+  const { rooms, srv, base } = await start();
+  try {
+    const a = (await post(base, 'create', {})).body, b = (await post(base, 'join', { code: a.code })).body, r = rooms.get(a.code);
+    const st = G.publicState(r.state), mv = G.legalMoves(st).find(m => m.type === 'move');
+    assert.equal((await post(base, 'move', { code: a.code, token: a.token, move: mv })).status, 200);
+    const turn = r.state.turn, snap = JSON.stringify(r.state);
+    assert.equal((await post(base, 'join', { code: a.code })).status, 409);
+    await post(base, 'leave', { code: a.code, token: b.token });
+    assert.equal(rooms.view(r, 0).opponent, 'left');
+    assert.equal((await post(base, 'move', { code: a.code, token: b.token, move: mv })).status, 403, 'старый токен не действует');
+    const b2 = (await post(base, 'join', { code: a.code })).body;
+    assert.equal(b2.player, 1); assert.deepEqual(G.teamsOfPlayer(r.state, b2.player), [2]);
+    assert.equal(JSON.stringify(r.state), snap, 'партия та же'); assert.equal(r.state.turn, turn);
+    assert.equal(rooms.view(r, 0).opponent, 'offline'); // занял место, ждём подключения
+    rooms.setOnline(r, 1, true); assert.equal(rooms.view(r, 0).opponent, 'online');
+    assert.equal(V.onlineBanner(rooms.view(r, 0).state, { player: 0, opponent: 'online' }).kind === 'left', false); // «соперник вернулся»: обычная плашка хода
+    assert.equal((await post(base, 'join', { code: a.code })).status, 409);
+    // вышел первый игрок — новый вход получает его место (игрок 1, Белые)
+    await post(base, 'leave', { code: a.code, token: a.token });
+    const a2 = (await post(base, 'join', { code: a.code })).body; assert.equal(a2.player, 0);
+  } finally { srv.closeAllConnections(); srv.close(); }
+});
+
+test('v0.5.3: «Вы играете за …», подсказка про файлы только в режиме файлов', () => {
+  const s = G.newGame({ mode: '1v1', seed: 3 });
+  assert.equal(V.youAreText(s, 0), 'Вы играете за Белых'); assert.equal(V.youAreText(s, 1), 'Вы играете за Чёрных');
+  assert.equal(V.showFileHelp({ online: true, me: '0' }), false); assert.equal(V.showFileHelp({ online: false, me: 'all' }), false);
+  assert.equal(V.showFileHelp({ online: false, me: '1' }), true);
+});
+
+test('v0.5.3: SSE сразу отдаёт retry: 1000 и данные — без ожидания пинга', async () => {
+  const { srv, base } = await start();
+  try {
+    const a = (await post(base, 'create', {})).body, t0 = Date.now();
+    const r = await fetch(`${base}/api/events?code=${a.code}&token=${a.token}`), rd = r.body.getReader();
+    const txt = new TextDecoder().decode((await rd.read()).value);
+    assert.match(txt, /^retry: 1000/); assert.ok(Date.now() - t0 < 1000); assert.equal(r.headers.get('x-accel-buffering'), 'no');
+    rd.cancel();
+  } finally { srv.closeAllConnections(); srv.close(); }
 });

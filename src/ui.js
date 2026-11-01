@@ -69,6 +69,8 @@ function render() {
   $('#me').value = me;
   $('#log').textContent = s.log.slice(-6).reverse().join('\n');
   if (s.pending && (!s.pending.type || s.pending.type === 'cave') && myTurn() && sel !== s.pending.pid) { sel = s.pending.pid; withCoin = s.pending.treasure ? 'T' : s.pending.coin; return render(); }
+  const ya = $('#youAre'); ya.hidden = !net; if (net) { ya.textContent = V.youAreText(s, net.sess.player); ya.style.borderColor = G.TEAMS[G.teamsOfPlayer(s, net.sess.player)[0]]?.color ?? ''; }
+  $('#fileHelp').hidden = !V.showFileHelp({ online: !!net, me });
   renderBanner();
   if (!net) localStorage.setItem('jackal-save', G.serialize(s));
 }
@@ -95,9 +97,10 @@ function goOnline(sess) {
   window.jackalDropConnection = () => net?.stop.drop(); // для Тестировщика: имитация обрыва связи
 }
 // Покинуть онлайн-партию. Пока партия идёт — только с подтверждения; возвращает false, если игрок передумал.
-function goLocal() {
+const LEAVE_Q = 'Выйти из онлайн-партии? Соперник увидит, что вы вышли.';
+function goLocal(confirmed = false) {
   if (!net) return true;
-  if (V.needsLeaveConfirm(net, state) && !confirm('Выйти из онлайн-партии? Соперник увидит, что вы вышли.')) return false;
+  if (!confirmed && V.needsLeaveConfirm(net, state) && !confirm(LEAVE_Q)) return false;
   net.stop(); if (!net.gone) Net.leave(net.sess); Net.forget(); net = null; $('#me').closest('label').hidden = false; $('#banner').hidden = true; return true;
 }
 function showCode(code) { $('#codeBox').innerHTML = [...code].map(c => `<span>${c}</span>`).join(''); $('#codeArea').hidden = false; }
@@ -123,8 +126,10 @@ $('#me').onchange = e => { me = e.target.value; localStorage.setItem('jackal-me'
 $('#newBtn').onclick = () => $('#menu').showModal();
 document.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => { start(b.dataset.mode); $('#menu').close(); });
 $('#saveBtn').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([G.serialize(state)], { type: 'application/json' })); a.download = `jackal-hod-${state.turn + 1}.json`; a.click(); };
-$('#loadBtn').onclick = () => $('#file').click();
-$('#file').onchange = async e => { const f = e.target.files[0]; if (!f) return; try { if (!goLocal()) return; state = G.loadState(await f.text()); sel = null; render(); } catch (err) { alert(err.message); } e.target.value = ''; };
+// онлайн: спросить ДО выбора файла; сам выход — после того как файл выбран
+let fileConfirmed = false;
+$('#loadBtn').onclick = () => { fileConfirmed = !V.needsLeaveConfirm(net, state) || confirm(LEAVE_Q); if (fileConfirmed) $('#file').click(); };
+$('#file').onchange = async e => { const f = e.target.files[0]; if (!f) return; try { if (!goLocal(fileConfirmed)) return; state = G.loadState(await f.text()); sel = null; render(); } catch (err) { alert(err.message); } e.target.value = ''; };
 // Онлайн-меню
 $('#onlineBtn').onclick = () => { $('#menu').close(); $('#onlineErr').textContent = ''; $('#codeArea').hidden = !net; $('#online').showModal(); };
 $('#createBtn').onclick = async () => { try { if (!goLocal()) return; const sess = await Net.create({ houseCrocDeath: $('#optCroc').checked, archipelagoMissionary: $('#optArch').checked }); showCode(sess.code); goOnline(sess); } catch (e) { $('#onlineErr').textContent = e.message; } };

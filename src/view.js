@@ -112,3 +112,9 @@ export function onlineBanner(s, { player, connected = true, opponent = 'online',
 
 // Нужно ли спрашивать подтверждение, прежде чем покинуть онлайн-партию (и отправить leave).
 export function needsLeaveConfirm(net, s) { return !!net && !net.gone && !!s && !s.over; }
+
+// За кого играет эта вкладка онлайн (1v1: игрок 1 — Белые, игрок 2 — Чёрные).
+const GEN = { 'Белые': 'Белых', 'Чёрные': 'Чёрных', 'Жёлтые': 'Жёлтых', 'Красные': 'Красных' };
+export function youAreText(s, player) { const t = G.teamsOfPlayer(s, player)[0]; return t == null ? '' : `Вы играете за ${GEN[G.TEAMS[t].name] ?? G.TEAMS[t].name}`; }
+// Подсказка про игру по файлам — только в режиме файлов (не онлайн и не hot-seat).
+export const showFileHelp = ({ online, me }) => !online && me !== 'all';

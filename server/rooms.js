@@ -25,10 +25,11 @@ export class Rooms {
   }
   get(code) { const r = this.rooms.get(String(code || '').toUpperCase().trim()); if (!r) throw httpErr(404, 'Игра с таким кодом не найдена'); return r; }
   join(code) {
-    const r = this.get(code); if (r.seats[1]) throw httpErr(409, 'В этой игре уже два игрока');
-    const token = crypto.randomUUID(); r.seats[1] = { token, online: false, left: false }; this.touch(r); return { code: r.code, token, player: 1 };
+    // свободно: второе место ещё не занято или игрок вышел (место освобождено) — входящий продолжает за ту же команду
+    const r = this.get(code), i = r.seats.findIndex(s => !s || s.left); if (i < 0) throw httpErr(409, 'В этой игре уже два игрока');
+    const token = crypto.randomUUID(); r.seats[i] = { token, online: false, left: false }; this.touch(r); return { code: r.code, token, player: i };
   }
-  seat(r, token) { const i = r.seats.findIndex(s => s && s.token === token); if (i < 0) throw httpErr(403, 'Неверный токен игрока'); return i; }
+  seat(r, token) { const i = token ? r.seats.findIndex(s => s && s.token === token) : -1; if (i < 0) throw httpErr(403, 'Неверный токен игрока'); return i; }
   move(code, token, move) {
     const r = this.get(code), player = this.seat(r, token);
     if (!move || typeof move !== 'object') throw httpErr(400, 'Нет хода');
@@ -37,7 +38,7 @@ export class Rooms {
     this.touch(r); return r.state;
   }
   setOnline(r, player, online) { if (r.seats[player]) { r.seats[player].online = online; if (online) r.seats[player].left = false; this.touch(r); } }
-  leave(code, token) { const r = this.get(code), p = this.seat(r, token); r.seats[p].left = true; r.seats[p].online = false; this.touch(r); }
+  leave(code, token) { const r = this.get(code), p = this.seat(r, token); r.seats[p] = { token: null, online: false, left: true }; this.touch(r); } // место освобождено, старый токен больше не действует
   // Что видит игрок: публичное состояние + статус соперника.
   view(r, player) {
     const o = r.seats[1 - player];

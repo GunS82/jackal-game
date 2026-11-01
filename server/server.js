@@ -18,7 +18,8 @@ export function createServer({ rooms = new Rooms() } = {}) {
       if (url.pathname === '/api/events' && req.method === 'HEAD') { rooms.seat(rooms.get(url.searchParams.get('code')), url.searchParams.get('token')); res.writeHead(204); return res.end(); }
       if (url.pathname === '/api/events' && req.method === 'GET') {
         const r = rooms.get(url.searchParams.get('code')), player = rooms.seat(r, url.searchParams.get('token'));
-        res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store', connection: 'keep-alive' });
+        res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store, no-transform', connection: 'keep-alive', 'x-accel-buffering': 'no' });
+        res.write(`retry: 1000\n: ${' '.repeat(2048)}\n\n`); // сразу: браузер переподключается через 1 с; паддинг пробивает буферизацию прокси (иначе первые данные приходили только с пингом через 20 с)
         const sub = { player, send: v => res.write(`data: ${JSON.stringify(v)}\n\n`), close: () => res.end() };
         r.subs.add(sub); rooms.setOnline(r, player, true);
         const ping = setInterval(() => res.write(': ping\n\n'), 20000);
