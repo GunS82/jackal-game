@@ -58,7 +58,7 @@ export function newGame({ mode = '2p', seed = Date.now() } = {}) {
   }
   const pirates = [];
   TEAMS.forEach((T, team) => { if (activeTeams(mode).includes(team)) for (let i = 0; i < 3; i++) pirates.push({ id: pirates.length, team, x: T.ship[0], y: T.ship[1], alive: true, spin: 0, trapped: false, drunkUntil: 0 }); });
-  return { version: FORMAT_VERSION, seed, mode, turn: 0, current: 0, pending: null, moves: [], tiles, ships: TEAMS.map(T => ({ x: T.ship[0], y: T.ship[1] })), pirates, score: [0, 0, 0, 0], rum: [0, 0, 0, 0], lost: 0, over: false, log: [] };
+  return { version: FORMAT_VERSION, seed, mode, turn: 0, current: 0, pending: null, endReason: null, moves: [], tiles, ships: TEAMS.map(T => ({ x: T.ship[0], y: T.ship[1] })), pirates, score: [0, 0, 0, 0], rum: [0, 0, 0, 0], lost: 0, over: false, log: [] };
 }
 
 export const tileAt = (s, x, y) => s.tiles[key(x, y)];
@@ -144,12 +144,17 @@ function deliver(s, team, coin) { if (coin) { s.score[team]++; msg(s, `💰 ${TE
 // Перемещение пирата с цепочкой эффектов клеток.
 function walk(s, p, x, y, via, coin) {
   const origin = s.pending ? s.pending.origin : [p.x, p.y];
-  const chain = s.pending ? s.pending.steps : 0;
+  const visits = s.pending ? { ...s.pending.visits } : {};
   const origSpin = p.spin; p.spin = 0;
   s.pending = null;
   let from = [p.x, p.y], delta = [x - p.x, y - p.y];
-  for (let step = 0; step < 60; step++) {
+  const cycleDeath = () => { if (coin) s.lost++; die(s, p, 'попал в цикл'); };
+  for (let step = 0; ; step++) {
     if (!inGrid(x, y)) { x = Math.max(0, Math.min(N - 1, x)); y = Math.max(0, Math.min(N - 1, y)); }
+    // защита от циклов: больше двух заходов в одну клетку за ход — гибель
+    const vk = key(x, y); visits[vk] = (visits[vk] || 0) + 1;
+    if (visits[vk] > 2) return cycleDeath();
+    const inChain = step > 0 || Object.keys(visits).length > 1;
     if (isSea(x, y)) {
       const sh = shipAt(s, x, y);
       if (sh >= 0) { if (allied(s, sh, p.team)) { p.x = x; p.y = y; p.spin = 0; deliver(s, sh, coin); } else { if (coin) s.lost++; die(s, p, 'вражеский корабль'); } return; }
@@ -158,6 +163,7 @@ function walk(s, p, x, y, via, coin) {
       p.x = x; p.y = y; p.spin = 0; return;
     }
     const t = tileAt(s, x, y);
+    if (t.kind === 'croc' && t.open && inChain) { if (coin) s.lost++; die(s, p, 'цепочка привела на открытого крокодила'); return; }
     reveal(s, t, p);
     const next = (nx, ny) => { delta = [nx - x, ny - y]; from = [x, y]; x = nx; y = ny; };
     if (t.kind === 'arrow' && t.dirs.length === 1) { next(x + t.dirs[0][0], y + t.dirs[0][1]); continue; }
@@ -171,8 +177,7 @@ function walk(s, p, x, y, via, coin) {
     if (t.kind === 'ogre') { if (coin) t.coins++; die(s, p, 'съеден людоедом'); return; }
     if ((t.kind === 'arrow' && t.dirs.length > 1) || t.kind === 'horse') {
       p.x = x; p.y = y; p.spin = 0;
-      if (chain > 30) { if (coin) s.lost++; die(s, p, 'попал в цикл'); return; }
-      s.pending = { pid: p.id, coin, origin, steps: chain + 1 }; return; // выбор направления в этот же ход
+      s.pending = { pid: p.id, coin, origin, visits }; return; // выбор направления в этот же ход
     }
     if (t.kind === 'balloon') { toShip(s, p); deliver(s, p.team, coin); msg(s, `🎈 ${pname(p)} улетел на корабль`); return; }
     // остановка на клетке
@@ -186,8 +191,6 @@ function walk(s, p, x, y, via, coin) {
     if (coin) { if (SPIN[t.kind]) p.carry = true; else t.coins++; } // на вертушке монета едет «в руках»
     return;
   }
-  if (coin) s.lost++;
-  die(s, p, 'попал в цикл');
 }
 
 // Чистая функция: возвращает новое состояние, исходное не меняется.
@@ -220,6 +223,12 @@ export function applyMove(s0, m, { asPlayer = null } = {}) {
 
 export function coinsLeft(s) { let n = (s.pending?.coin ? 1 : 0) + s.pirates.filter(p => p.alive && p.carry).length; for (const t of Object.values(s.tiles)) n += t.coins + (!t.open && CHEST[t.kind] ? CHEST[t.kind] : 0); return n; }
 
+export const END_REASONS = { majority: 'больше половины всех монет', allCoins: 'все монеты разыграны', noPirates: 'не осталось живых пиратов', noMoves: 'ни у кого нет ходов — ничья', noShips: 'не осталось кораблей' };
+export const TOTAL_COINS = 37;
+function finish(s, reason) { s.over = true; s.endReason = reason; s.pending = null; msg(s, '🏁 ' + END_REASONS[reason]); }
+// Пират временно пропускает ход (бочонок), значит позже у него появятся ходы.
+const waiting = s => s.pirates.some(p => p.alive && activeTeams(s.mode).includes(p.team) && p.drunkUntil >= s.turn);
+
 function endTurn(s) {
   if (s.pending) {
     const p = s.pirates[s.pending.pid];
@@ -228,21 +237,28 @@ function endTurn(s) {
     s.pending = null; die(s, p, 'некуда идти');
   }
   s.turn++;
-  if (coinsLeft(s) === 0 && (s.score.some(v => v > 0) || s.lost > 0)) { s.over = true; return; }
+  const sc = sideScores(s);
+  if (Object.values(sc).some(v => v * 2 > TOTAL_COINS)) return finish(s, 'majority');
+  if (coinsLeft(s) === 0 && (s.score.some(v => v > 0) || s.lost > 0)) return finish(s, 'allCoins');
   const act = activeTeams(s.mode);
-  for (let i = 0; i < 4; i++) {
+  if (!s.pirates.some(p => p.alive && act.includes(p.team))) return finish(s, 'noPirates');
+  let passes = 0;
+  for (let i = 0; i < 400; i++) {
     s.current = act[(act.indexOf(s.current) + 1) % act.length];
     if (legalMoves(s).length) return;
-    s.turn++;
+    if (++passes >= act.length && !waiting(s)) return finish(s, 'noMoves'); // полный круг без ходов
+    s.turn++; // команда без ходов пропускает ход
   }
-  s.over = true;
+  finish(s, 'noMoves');
 }
 
 export function sideScores(s) {
   const out = {}; s.score.forEach((v, t) => { if (!activeTeams(s.mode).includes(t)) return; const k = sideOf(s, t); out[k] = (out[k] || 0) + v; }); return out;
 }
 export function winner(s) {
-  if (!s.over) return null; const sc = sideScores(s); const best = Math.max(...Object.values(sc));
+  if (!s.over) return null;
+  if (s.endReason === 'noMoves') return Object.keys(sideScores(s)).map(Number); // ничья
+  const sc = sideScores(s); const best = Math.max(...Object.values(sc));
   return Object.keys(sc).filter(k => sc[k] === best).map(Number);
 }
 export function sideName(s, side) { return s.mode === '4p' ? TEAMS[side].name : s.mode === '1v1' ? `Игрок ${side + 1} (${TEAMS[side * 2].name})` : side === 0 ? (s.mode === '2p' ? 'Игрок 1 (Белые+Чёрные)' : 'Белые+Чёрные') : (s.mode === '2p' ? 'Игрок 2 (Жёлтые+Красные)' : 'Жёлтые+Красные'); }
@@ -257,7 +273,7 @@ export function loadState(text) {
   if (!raw || typeof raw !== 'object') err('ожидался объект');
   const mode = raw.mode ?? '2p'; if (!MODES[mode]) err(`mode должен быть одним из ${Object.keys(MODES).join(', ')}`);
   if (raw.version != null && raw.version > FORMAT_VERSION) err(`версия формата ${raw.version} новее поддерживаемой (${FORMAT_VERSION})`);
-  const s = { version: FORMAT_VERSION, seed: raw.seed ?? null, pending: raw.pending ?? null, moves: Array.isArray(raw.moves) ? raw.moves : [], log: Array.isArray(raw.log) ? raw.log : [], mode, turn: raw.turn ?? 0, current: raw.current ?? 0, tiles: {}, ships: [], pirates: [], score: raw.score ?? [0, 0, 0, 0], rum: raw.rum ?? [0, 0, 0, 0], lost: raw.lost ?? 0, over: !!raw.over };
+  const s = { version: FORMAT_VERSION, seed: raw.seed ?? null, pending: raw.pending ?? null, moves: Array.isArray(raw.moves) ? raw.moves : [], log: Array.isArray(raw.log) ? raw.log : [], mode, turn: raw.turn ?? 0, current: raw.current ?? 0, tiles: {}, ships: [], pirates: [], score: raw.score ?? [0, 0, 0, 0], rum: raw.rum ?? [0, 0, 0, 0], lost: raw.lost ?? 0, over: !!raw.over, endReason: raw.endReason ?? null };
   if (!activeTeams(mode).includes(s.current)) err('current: эта команда не участвует в режиме');
   if (![0, 1, 2, 3].includes(s.current)) err('current должен быть 0..3');
   for (const f of ['score', 'rum']) if (!Array.isArray(s[f]) || s[f].length !== 4 || s[f].some(v => !Number.isInteger(v) || v < 0)) err(`${f} — массив из 4 неотрицательных целых`);
@@ -302,4 +318,18 @@ export function loadState(text) {
   for (const t of activeTeams(mode)) while (count[t]++ < 3) s.pirates.push({ id: 0, team: t, x: null, y: null, alive: false, spin: 0, trapped: false, drunkUntil: 0 });
   s.pirates.sort((a, b) => a.team - b.team); s.pirates.forEach((p, i) => p.id = i);
   return s;
+}
+
+// Классификация легальных ходов для подсветки: 'death' — ход (с учётом цепочки) убивает пирата,
+// 'coin' — монета попадает на корабль, иначе 'move'. Считается пробным применением хода к копии.
+export function classifyMoves(s) {
+  return legalMoves(s).map(m => {
+    let kind = 'move';
+    try {
+      const n = applyMove(s, m);
+      if (m.pid != null && !n.pirates[m.pid].alive) kind = 'death';
+      else if (n.score.reduce((a, b) => a + b, 0) > s.score.reduce((a, b) => a + b, 0)) kind = 'coin';
+    } catch { kind = 'death'; }
+    return { ...m, kind };
+  });
 }

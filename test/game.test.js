@@ -58,3 +58,64 @@ test('корабль давит вражеского пловца', () => {
   let s = pos({ mode: '1v1', pirates: [{ team: 0, onShip: true }, { team: 2, x: 7, y: 12 }] });
   s = mv(s, m => m.type === 'ship' && m.x === 7); assert.equal(s.pirates.find(p => p.team === 2).alive, false);
 });
+
+// ---- v0.3 ----
+test('цикл: третий заход в одну клетку за ход — гибель, монета теряется', () => {
+  let s = pos({ tiles: { '6,10': { kind: 'arrow1', dirs: [[0, -1]] }, '6,9': { kind: 'arrow1', dirs: [[0, 1]] } , '5,11': { coins: 1 }}, pirates: [{ team: 0, x: 5, y: 11 }, { team: 0, onShip: true }] });
+  s = mv(s, m => m.pid === 0 && m.x === 6 && m.y === 10 && m.coin);
+  assert.equal(s.pirates[0].alive, false); assert.equal(s.lost, 1); assert.match(s.log.join(), /цикл/);
+});
+test('цикл через выбор направления (pending) тоже считается', () => {
+  let s = pos({ tiles: { '6,10': { kind: 'arrow2', dirs: [[0, -1], [0, 1]] }, '6,9': { kind: 'arrow1', dirs: [[0, 1]] } }, pirates: [{ team: 0, x: 6, y: 11 }] });
+  s = mv(s, m => m.x === 6 && m.y === 10); assert.ok(s.pending); s = mv(s, m => m.x === 6 && m.y === 9);
+  assert.ok(s.pending); s = mv(s, m => m.x === 6 && m.y === 9); assert.equal(s.pirates[0].alive, false);
+});
+test('цепочка на открытого крокодила — гибель; закрытый — отбрасывает', () => {
+  let s = pos({ tiles: { '6,10': { kind: 'ice' }, '6,9': { kind: 'croc', open: true } }, pirates: [{ team: 0, x: 6, y: 11 }] });
+  s = mv(s, m => m.x === 6 && m.y === 10); assert.equal(s.pirates[0].alive, false);
+  let s2 = pos({ tiles: { '6,10': { kind: 'ice' }, '6,9': { kind: 'croc', open: false } }, pirates: [{ team: 0, x: 6, y: 11 }] });
+  s2 = mv(s2, m => m.x === 6 && m.y === 10); assert.deepEqual([s2.pirates[0].x, s2.pirates[0].y, s2.pirates[0].alive], [6, 11, true]);
+});
+test('конец: majority — больше половины монет у игрока (команды игрока вместе)', () => {
+  let s = pos({ mode: '2p', score: [10, 0, 8, 0], tiles: { '6,11': { coins: 5 } }, pirates: [{ team: 0, x: 6, y: 11 }, { team: 1, onShip: true }] });
+  s = mv(s, m => m.coin && m.y === 12); assert.equal(s.over, true); assert.equal(s.endReason, 'majority'); assert.deepEqual(G.winner(s), [0]);
+});
+test('конец: allCoins и noPirates', () => {
+  let s = pos({ score: [1, 0, 0, 0], tiles: { '6,11': { coins: 1 } }, pirates: [{ team: 0, x: 6, y: 11 }] });
+  s = mv(s, m => m.coin && m.y === 12); assert.equal(s.endReason, 'allCoins');
+  let s2 = pos({ tiles: { '6,10': { kind: 'ogre' }, '3,3': { coins: 1 } }, pirates: [{ team: 0, x: 6, y: 11 }] });
+  s2 = mv(s2, m => m.x === 6 && m.y === 10); assert.equal(s2.endReason, 'noPirates');
+});
+test('пьяный пират не даёт закончить партию (1v1 seed 1 больше не 0:0 на 207 ходу)', () => {
+  // все пираты: один пьяный, второй в капкане — ход передаётся, пока пьяный не протрезвеет
+  let s = pos({ mode: '1v1', tiles: { '6,10': { kind: 'barrel' }, '3,3': { kind: 'trap' }, '8,8': { coins: 1 } }, pirates: [{ team: 0, x: 6, y: 11 }, { team: 2, x: 3, y: 3, trapped: true }] });
+  s = mv(s, m => m.x === 6 && m.y === 10); assert.equal(s.over, false); assert.equal(s.current, 0); assert.equal(s.pirates[0].x, 6);
+  const { s: g, n } = simulate(1, '1v1', 3000); assert.ok(n > 207 || g.endReason !== 'noMoves');
+});
+test('ничья noMoves: ходов нет ни у кого и никто не пьян', () => {
+  let s = pos({ mode: '1v1', tiles: { '3,3': { kind: 'trap' }, '8,8': { kind: 'trap' }, '5,5': { coins: 1 }, '6,10': { kind: 'ice' }, '6,9': { kind: 'croc' } }, pirates: [{ team: 0, x: 6, y: 11 }, { team: 0, x: 8, y: 8, trapped: true }, { team: 2, x: 3, y: 3, trapped: true }] });
+  s = mv(s, m => m.x === 6 && m.y === 10); assert.equal(s.endReason, 'noMoves'); assert.deepEqual(G.winner(s), [0, 1]);
+});
+test('второй пират той же команды на капкане освобождает первого', () => {
+  let s = pos({ tiles: { '6,10': { kind: 'trap' } }, pirates: [{ team: 0, x: 6, y: 11 }, { team: 0, x: 6, y: 10, trapped: true }] });
+  s = mv(s, m => m.pid === 0 && m.x === 6 && m.y === 10); assert.equal(s.pirates[0].trapped, false); assert.equal(s.pirates[1].trapped, false);
+  for (const seed of [14, 36]) { let g = G.newGame({ seed, mode: '2p' }); const r = G.rng(seed + 7);
+    for (let n = 0; n < 3000 && !g.over; n++) { const ms = G.legalMoves(g); g = G.applyMove(g, ms[Math.floor(r() * ms.length)]);
+      const tr = g.pirates.filter(p => p.alive && p.trapped); assert.ok(!tr.some(p => tr.some(q => q !== p && allyOn(g, p, q))), `seed ${seed}, ход ${n}`); } }
+});
+const allyOn = (g, p, q) => p.x === q.x && p.y === q.y && G.allied(g, p.team, q.team);
+test('классификация ходов: death / coin / move', () => {
+  const s = pos({ tiles: { '6,10': { kind: 'ogre', open: true }, '5,11': { coins: 1 }, '6,11': { coins: 1 } }, pirates: [{ team: 0, x: 6, y: 11 }] });
+  const c = G.classifyMoves(s);
+  assert.equal(c.find(m => m.x === 6 && m.y === 10).kind, 'death');
+  assert.equal(c.find(m => m.y === 12 && m.coin).kind, 'coin');
+  assert.equal(c.find(m => m.x === 5 && m.y === 11 && !m.coin).kind, 'move');
+  assert.equal(c.length, G.legalMoves(s).length);
+});
+test('колода: 117 клеток, по 3 стрелки каждого из 7 видов, прямые arrow1/arrow1d есть', () => {
+  const total = Object.values(G.DECK).reduce((a, b) => a + b, 0); assert.equal(total, 117);
+  for (const k of Object.keys(G.ARROWS)) assert.equal(G.DECK[k], 3, k);
+  const s = G.newGame({ seed: 4 }); const kinds = Object.values(s.tiles).map(t => t.arrow ?? t.kind);
+  assert.equal(kinds.filter(k => k === 'arrow1').length, 3); assert.equal(kinds.filter(k => k === 'arrow1d').length, 3);
+  const coins = Object.values(s.tiles).reduce((a, t) => a + (G.CHEST[t.kind] ?? 0), 0); assert.equal(coins, 37);
+});

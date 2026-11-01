@@ -27,7 +27,9 @@
   ]
 }
 ```
-- `moves` — журнал ходов `[{n, team, type, pid, x, y, via, coin}]`, `log` — текстовый журнал, `pending` — незавершённый ход по стрелке/коню `{pid, coin, origin, steps}` (обычно null).
+- `over`, `endReason` — конец партии и причина: `majority` | `allCoins` | `noPirates` | `noMoves` (ничья) | `noShips` (зарезервировано).
+- `pending.visits` — счётчик заходов в клетки за текущий ход (защита от циклов).
+- `moves` — журнал ходов `[{n, team, type, pid, x, y, via, coin}]`, `log` — текстовый журнал, `pending` — незавершённый ход по стрелке/коню `{pid, coin, origin, visits}` (обычно null).
 - `kind`: empty, arrow1, arrow1d, arrow2, arrow2d, arrow3, arrow4, arrow4d (или `arrow` + обязательный `dirs`), horse, spin2..spin5, ice, trap, croc, ogre, fort, abor, chest1..chest5, plane, balloon, cannon, barrel, rum1..rum3.
 - `open` по умолчанию `true`; `coins` — монеты, лежащие на клетке (у закрытого сундука монеты появятся при открытии).
 - Пиратов не больше 3 на команду; недостающие считаются погибшими. `spin` — текущий шаг на вертушке, `carry: true` — пират несёт монету через вертушку.

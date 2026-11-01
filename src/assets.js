@@ -45,3 +45,4 @@ export function tileImg(t) {
 export const pirateImg = team => `assets/pieces/pirate-${TEAM_COLOR[team]}.svg`;
 export const shipImg = team => `assets/pieces/ship-${TEAM_COLOR[team]}.svg`;
 export const coinImg = 'assets/pieces/coin.svg';
+export const hlImg = kind => `assets/ui/hl-${kind}.svg`; // слои подсветки ходов: move / death / coin

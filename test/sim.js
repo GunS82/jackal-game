@@ -14,6 +14,6 @@ if (process.argv[1]?.endsWith('sim.js')) {
   for (const mode of modes) for (let seed = 1; seed <= 5; seed++) {
     const { s, n } = simulate(seed, mode, 3000);
     const fin = { ...s, over: true }; // лидер на момент остановки, если партия не закончилась
-    console.log(mode, seed, 'ходов', n, 'окончена', s.over, 'стороны', JSON.stringify(G.sideScores(s)), 'утонуло', s.lost, s.over ? 'победа' : 'лидер', G.winner(fin).map(k => G.sideName(s, k)).join(' | '));
+    console.log(mode, seed, 'ходов', n, 'окончена', s.over, 'стороны', JSON.stringify(G.sideScores(s)), 'утонуло', s.lost, 'причина', s.endReason, s.over ? 'победа' : 'лидер', G.winner(fin).map(k => G.sideName(s, k)).join(' | '));
   }
 }
