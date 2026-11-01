@@ -29,7 +29,7 @@ jobs:
           SERVER_URL: ${{ vars.SERVER_URL }}
         run: |
           mkdir -p _site
-          cp -r index.html style.css favicon.svg favicon.ico src assets positions _site/
+          cp -r index.html rules.html rules.css style.css favicon.svg favicon.ico src assets positions _site/
           if [ -n "$SERVER_URL" ]; then
             sed -i "s#^export const RENDER_URL = .*#export const RENDER_URL = '${SERVER_URL%/}';#" _site/src/config.js
           fi
