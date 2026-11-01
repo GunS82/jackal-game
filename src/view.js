@@ -181,12 +181,7 @@ export function plateHint(plate, sel, myTurn) {
   return `На клетке ${plate.pids.length} ${plate.pids.length < 5 ? 'пирата' : 'пиратов'} — выберите одного на плашке ${pl.side === 'right' ? 'справа' : 'слева'}`;
 }
 // Ход только что пропущен автоматически (все пьяны / нет ходов) — показать это над полем.
-export function skipNotice(s) {
-  if (!s || !s.log?.length) return null;
-  const m = [...s.log].reverse().find(l => l.startsWith(G.SKIP_MARK)); if (!m) return null;
-  const n = +(m.match(/№(\d+)/) || [])[1];
-  return n === s.turn ? m.slice(G.SKIP_MARK.length).trim() : null;
-}
+export function skipNotice(s) { return s?.skipNote || null; } // ставит passStuck, стирает следующий applyMove; журнал не трогаем
 // Нажали на чужих пиратов (например, на корабль чёрных в ход белых) — объяснить, почему ничего не выбрано.
 export function turnNotice(s, x, y) {
   if (!s || s.over || s.pending) return null;
@@ -207,3 +202,11 @@ export const NOTE_KEY = 'jackal-menu-note';
 // v0.5.8: пират пьян (ром) — значок assets/ui/drunk.svg справа снизу на фишке; снимается, когда протрезвеет.
 export const isDrunk = (s, p) => !!p && p.alive && s.turn < (p.drunkUntil || 0);
 export const DRUNK_ICON = 'assets/ui/drunk.svg';
+
+// v0.5.14: стопка — 2+ пирата одной команды на клетке рисуются одной верхней фишкой со значком «×N» вместо номера;
+// номера — только на плашке. Верхняя — выбранная (если она в стопке), иначе первая. Пьяная стопка — если пьян хотя бы один.
+export function stacks(s, ps, sel = null) {
+  const by = new Map(); for (const p of ps) { if (!by.has(p.team)) by.set(p.team, []); by.get(p.team).push(p); }
+  return [...by.values()].flatMap(g => g.length < 2 || g.some(p => p.role) ? g.map(p => ({ top: p, pids: [p.id], n: 1, label: pirateNumber(s, p), drunk: isDrunk(s, p) }))
+    : [{ top: g.find(p => p.id === sel) || g[0], pids: g.map(p => p.id), n: g.length, label: '×' + g.length, drunk: g.some(p => isDrunk(s, p)) }]);
+}

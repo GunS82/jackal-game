@@ -43,12 +43,13 @@ function render() {
     const sh = G.shipAt(s, x, y);
     if (sh >= 0) { c.classList.add('ship'); c.style.setProperty('--team', G.TEAMS[sh].color); c.insertAdjacentHTML('afterbegin', pic(shipImg(sh), '⛵', 'tile')); }
     const ps = s.pirates.filter(p => p.alive && p.x === x && p.y === y);
-    ps.forEach((p, i) => {
+    const st = V.stacks(s, ps, sel);
+    st.forEach((k, i) => { const p = k.top, many = k.n > 1;
       const d = document.createElement('i');
       const mark = V.coinMark(s, p, moves, { sel, withCoin, myTurn: myTurn() }), coin = mark === 'coin' || mark === 'treasure', tre = mark === 'treasure';
-      d.className = `pirate n${ps.length} i${i}` + (p.id === sel ? ' sel' : '') + (p.trapped ? ' trapped' : '') + (p.inCave ? ' incave' : '');
-      d.title = G.pieceName(s, p) + (coin ? (tre ? ', несёт сокровище' : ', несёт монету') : '') + (p.trapped ? ', в капкане' : '') + (p.inCave ? ', в пещере' : '') + (V.isDrunk(s, p) ? ', пьян — пропускает ход' : '') + (mark === 'can' ? ', может взять монету' : mark === 'canTreasure' ? ', может взять сокровище' : '');
-      d.innerHTML = pic(pieceImg(p), '●', 'pi') + (coin ? (tre ? pic(treasureImg, '💰', 'pcoin ptre') : pic(coinImg, '🪙', 'pcoin')) : mark === 'can' ? pic(coinImg, '🪙', 'pcoin can') : mark === 'canTreasure' ? pic(treasureImg, '💰', 'pcoin ptre can') : '') + (p.spin ? `<em>${p.spin}</em>` : '') + (p.role === 'exmissionary' ? `<b class="role">${ROLE_BADGE[p.role]}</b>` : '') + (V.pirateNumber(s, p) ? `<b class="num">${V.pirateNumber(s, p)}</b>` : '') + (V.isDrunk(s, p) ? `<img class="drunk" src="${V.DRUNK_ICON}" alt="пьян">` : '');
+      d.className = `pirate n${st.length} i${i}` + (many ? ' stack' : '') + (p.id === sel ? ' sel' : '') + (p.trapped ? ' trapped' : '') + (p.inCave ? ' incave' : '');
+      d.title = G.pieceName(s, p) + (coin ? (tre ? ', несёт сокровище' : ', несёт монету') : '') + (p.trapped ? ', в капкане' : '') + (p.inCave ? ', в пещере' : '') + (many ? `, на клетке ${k.n} пирата — выбор на плашке` : '') + (k.drunk ? ', пьян — пропускает ход' : '') + (mark === 'can' ? ', может взять монету' : mark === 'canTreasure' ? ', может взять сокровище' : '');
+      d.innerHTML = pic(pieceImg(p), '●', 'pi') + (coin ? (tre ? pic(treasureImg, '💰', 'pcoin ptre') : pic(coinImg, '🪙', 'pcoin')) : mark === 'can' ? pic(coinImg, '🪙', 'pcoin can') : mark === 'canTreasure' ? pic(treasureImg, '💰', 'pcoin ptre can') : '') + (p.spin ? `<em>${p.spin}</em>` : '') + (p.role === 'exmissionary' ? `<b class="role">${ROLE_BADGE[p.role]}</b>` : '') + (k.label ? `<b class="num${many ? ' cnt' : ''}">${k.label}</b>` : '') + (k.drunk ? `<img class="drunk" src="${V.DRUNK_ICON}" alt="пьян">` : '');
       c.append(d);
     });
     const here = targets.filter(m => m.x === x && m.y === y);
@@ -62,7 +63,7 @@ function render() {
   dot.hidden = !!s.over; dot.style.background = T.color;
   if ($('#turnPrefix').textContent !== hp.prefix) $('#turnPrefix').textContent = hp.prefix;
   if ($('#turnText').textContent !== hp.text) $('#turnText').textContent = hp.text;
-  $('#status').textContent = notice || V.plateHint(plate, sel, myTurn()) || V.skipNotice(s) || V.coinHint(moves, { sel, withCoin }) || V.selectHint(s, sel, { myTurn: myTurn() }) || ''; notice = '';
+  $('#status').textContent = notice || V.plateHint(plate, sel, myTurn()) || (sel == null ? V.skipNotice(s) : null) || V.coinHint(moves, { sel, withCoin }) || V.selectHint(s, sel, { myTurn: myTurn() }) || ''; notice = '';
   const sc = G.sideScores(s);
   $('#score').innerHTML = Object.keys(sc).map(k => `${G.sideName(s, +k)}: <b>${sc[k]}</b>`).join(' · ') + ` · осталось ${G.coinsLeft(s)} · утонуло ${s.lost} · ром: ${G.activeTeams(s.mode).map(t => s.rum[t]).join('/')}`;
   const bs = V.buttons(s, moves, { sel, withCoin, myTurn: myTurn() });

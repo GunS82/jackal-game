@@ -313,6 +313,7 @@ export function applyMove(s0, m, { asPlayer = null } = {}) {
   if (s0.over) throw new Error('Игра окончена');
   if (asPlayer != null && controllerOf(s0) !== asPlayer) throw new Error('Сейчас ход другого игрока');
   const s = cloneState(s0);
+  delete s.skipNote; // сообщение о пропуске живёт до первого же хода
   const ok = legalMoves(s).some(l => JSON.stringify(l) === JSON.stringify(m));
   if (!ok) throw new Error('Недопустимый ход');
   const team = s.current;
@@ -398,7 +399,8 @@ function passStuck(s) {
     if (legalMoves(s).length) return;
     const own = s.pirates.filter(p => p.alive && p.team === s.current && !p.inCave);
     const why = own.length && own.every(p => s.turn < p.drunkUntil) ? (own.length > 1 ? 'все пираты пьяны' : 'пират пьян') : 'нет ходов';
-    msg(s, `${SKIP_MARK} ${TEAMS[s.current].name} пропускают ход №${s.turn + 1}: ${why}`);
+    const line = `${TEAMS[s.current].name} пропускают ход №${s.turn + 1}: ${why}`;
+    msg(s, `${SKIP_MARK} ${line}`); s.skipNote = s.skipNote && passes ? `${s.skipNote}; ${line}` : line;
     if (++passes >= act.length && !waiting(s)) return finish(s, 'noMoves'); // полный круг без ходов
     nextTurn(s); // команда без ходов пропускает ход
     s.current = act[(act.indexOf(s.current) + 1) % act.length];

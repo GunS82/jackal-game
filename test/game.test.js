@@ -327,7 +327,7 @@ test('v0.5.8: значок пьяного пирата есть, пока пир
   assert.equal(V.isDrunk(s, p), true); assert.equal(V.isDrunk({ ...s, turn: 2 }, p), true); assert.equal(V.isDrunk({ ...s, turn: 3 }, p), false, 'протрезвел');
   assert.equal(V.isDrunk(s, { ...p, alive: false }), false);
   assert.ok(fs.existsSync(new URL('../' + V.DRUNK_ICON, import.meta.url)));
-  const ui = fs.readFileSync(new URL('../src/ui.js', import.meta.url), 'utf8'); assert.equal((ui.match(/V\.isDrunk\(s, p\) \? `<img class="drunk"/g) || []).length, 2, 'на поле и в панели');
+  const ui = fs.readFileSync(new URL('../src/ui.js', import.meta.url), 'utf8'); assert.equal((ui.match(/(?:V\.isDrunk\(s, p\)|k\.drunk) \? `<img class="drunk"/g) || []).length, 2, 'на поле (стопка) и в панели');
   const css = fs.readFileSync(new URL('../style.css', import.meta.url), 'utf8'); assert.match(css, /img\.drunk\{position:absolute;right:-14%;bottom:-14%/);
 });
 
@@ -443,4 +443,36 @@ test('v0.5.13: номер и значок — минимум 11px через --b
   assert.match(css, /\.crew \.tok\{--tbadge:max\(11px,/);
   const m = css.match(/\.cell \.pirate \.num,\.cell \.pirate img\.drunk,\.crew \.tok b,\.crew \.tok img\.drunk\{([^}]*)\}/);
   assert.ok(m); assert.match(m[1], /outline:1px solid #fff/); assert.match(m[1], /pointer-events:none/);
+});
+
+test('v0.5.14: сообщение о пропуске стирается первым же ходом соперника (в журнале остаётся)', () => {
+  const s = G.loadState(fs.readFileSync(new URL('../positions/v0512-all-drunk.json', import.meta.url), 'utf8'));
+  assert.equal(V.skipNotice(s), 'Белые пропускают ход №1: все пираты пьяны');
+  const t = G.applyMove(s, G.legalMoves(s)[0]);
+  assert.equal(V.skipNotice(t), null); assert.ok(t.log.some(l => l.includes('Белые пропускают ход №1')));
+  assert.equal(V.skipNotice(G.loadState(G.serialize(t))), null, 'и после сохранения/загрузки');
+});
+
+test('v0.5.14: стопка своих пиратов — одна верхняя фишка с «×N», пьяна, если пьян хоть один; номера только на плашке', () => {
+  const s = G.loadState(fs.readFileSync(new URL('../positions/v0512-all-drunk.json', import.meta.url), 'utf8'));
+  const ship = s.pirates.filter(p => p.alive && p.x === 6 && p.y === 0);
+  assert.equal(ship.length, 3);
+  let st = V.stacks(s, ship, null);
+  assert.equal(st.length, 1); assert.equal(st[0].label, '×3'); assert.equal(st[0].n, 3); assert.equal(st[0].top, ship[0]);
+  assert.equal(V.stacks(s, ship, ship[2].id)[0].top, ship[2], 'наверху выбранный');
+  ship[1].drunkUntil = s.turn + 5; assert.equal(V.stacks(s, ship)[0].drunk, true);
+  const one = V.stacks(s, [ship[0]]); assert.equal(one[0].label, V.pirateNumber(s, ship[0]));
+  const mix = V.stacks(s, [...ship.slice(0, 2), s.pirates.find(p => p.team === 0)]); assert.equal(mix.length, 2);
+  const ui = fs.readFileSync(new URL('../src/ui.js', import.meta.url), 'utf8'); assert.match(ui, /V\.stacks\(s, ps, sel\)/);
+});
+
+test('v0.5.14: подсказка внизу — про выбор на плашке, без «повторное нажатие»', () => {
+  const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  assert.ok(!html.includes('повторное нажатие')); assert.match(html, /плашка — выберите на ней нужного/);
+});
+
+test('v0.5.14: плашка — фишки кликабельны: стоят поверх клеток, клик не уходит в клетку', () => {
+  const css = fs.readFileSync(new URL('../style.css', import.meta.url), 'utf8'), ui = fs.readFileSync(new URL('../src/ui.js', import.meta.url), 'utf8');
+  assert.match(css, /\.plate\{z-index:5/); assert.match(ui, /btn\.onclick = e => \{ e\.stopPropagation\(\); choose/);
+  assert.ok(!/(?:mousedown|pointerdown)[^\n]*plate *=/.test(ui), 'нет закрытия плашки по mousedown/pointerdown');
 });
