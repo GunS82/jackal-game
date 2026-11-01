@@ -46,7 +46,7 @@ export function teamsOfPlayer(s, pl) { return activeTeams(s.mode).filter(t => pl
 export function allied(state, a, b) { return a === b || (state.mode !== '4p' && state.mode !== '1v1' && a % 2 === b % 2); }
 export function sideOf(state, team) { return state.mode === '4p' ? team : state.mode === '1v1' ? team / 2 : team % 2; }
 
-export const DEFAULT_OPTIONS = { houseCrocDeath: false }; // houseCrocDeath — домашнее правило: цепочка на открытого крокодила убивает
+export const DEFAULT_OPTIONS = { houseCrocDeath: false, archipelagoMissionary: false }; // archipelagoMissionary — правило «Архипелага»: враги не встают на клетку миссионера; // houseCrocDeath — домашнее правило: цепочка на открытого крокодила убивает
 export function newGame({ mode = '2p', seed = Date.now(), options = {} } = {}) {
   const r = rng(seed);
   const deck = [];
@@ -140,8 +140,8 @@ export function pirateMoves(s, p) {
       if (coin && (!t.open || t.kind === 'fort' || t.kind === 'abor' || t.kind === 'jungle')) continue;
       if (enemies.length && t.open && (t.kind === 'fort' || t.kind === 'abor')) continue;
       if (coin && enemies.length && !(t.open && SPIN[t.kind]) && !s.pending) continue;
-      if (!jungle && enemies.length && calm) continue; // рядом с миссионером атаковать нельзя
-      if (!jungle && p.role !== 'friday' && all.some(q => q.role === 'missionary')) continue; // «Миссионер… сам не может быть атакован» — на его клетку враги не встают (кроме Пятницы — «встретит Пятницу»)
+      if (!jungle && enemies.length && (calm || all.some(q => q.role === 'missionary'))) continue; // миссионер защищает и обезоруживает; на клетку с одним миссионером встать можно (запрет — правило «Архипелага»)
+      if (s.options?.archipelagoMissionary && !jungle && p.role !== 'friday' && all.some(q => q.role === 'missionary')) continue; // «Архипелаг»: к миссионеру врагам нельзя
       if (p.role === 'missionary' && all.some(q => q.role !== 'friday') && !jungle) continue; // миссионер не заходит к врагам (встреча с Пятницей — можно)
       if (p.role === 'friday' && enemies.length) continue; // Пятница никого не атакует
       add(x, y, via, coin, treasure);
@@ -299,8 +299,9 @@ function impossible(s, p, x, y, t, v, calm) {
   if (v && (t.kind === 'fort' || t.kind === 'abor')) return 'в крепость нельзя с грузом';
   if (p.role === 'friday') return all.some(q => q.role !== 'missionary') ? 'Пятница не может атаковать' : null;
   if (p.role === 'missionary') return all.some(q => q.role !== 'friday') ? 'миссионер не заходит к врагам' : null;
-  if (all.some(q => q.role === 'missionary')) return 'миссионера и пиратов рядом с ним атаковать нельзя';
-  if (!all.length) return null;
+  if (s.options?.archipelagoMissionary && all.some(q => q.role === 'missionary')) return 'к миссионеру врагам нельзя (правило «Архипелага»)';
+  if (!all.some(q => q.role !== 'missionary')) return null; // только миссионер — встать можно, без боя
+  if (all.some(q => q.role === 'missionary')) return 'пиратов рядом с миссионером атаковать нельзя';
   if (t.kind === 'fort' || t.kind === 'abor') return 'крепость занята врагом';
   if (calm) return 'рядом с миссионером атаковать нельзя';
   return null;

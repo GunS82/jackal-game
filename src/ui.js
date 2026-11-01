@@ -81,7 +81,7 @@ function click(x, y, targets) {
   render();
 }
 
-function start(mode) { state = G.newGame({ mode, seed: Date.now() % 1e9, options: { houseCrocDeath: $('#optCroc').checked } }); sel = null; render(); }
+function start(mode) { state = G.newGame({ mode, seed: Date.now() % 1e9, options: { houseCrocDeath: $('#optCroc').checked, archipelagoMissionary: $('#optArch').checked } }); sel = null; render(); }
 $('#coinBtn').onclick = () => { withCoin = V.nextCargo(G.legalMoves(state), sel, withCoin); render(); };
 $('#rumBtn').onclick = () => { sel = sel === 'rum' ? null : 'rum'; render(); };
 $('#shipBtn').onclick = () => { sel = sel === 'ship' ? null : 'ship'; render(); };

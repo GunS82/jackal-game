@@ -19,16 +19,18 @@ test('1) Пятница: вертушка за ход, капкан, людое�
   assert.ok(role(meet, 'friday').gone && role(meet, 'missionary').gone);
 });
 
-test('2) миссионер: защищает и обезоруживает; враги не встают на его клетку', () => {
+test('2) миссионер: защищает и обезоруживает; на клетку одинокого миссионера встать можно (классика)', () => {
   const lone = pos({ mode: '1v1', current: 2, pirates: [{ team: 0, role: 'missionary', x: 5, y: 5 }, { team: 2, x: 6, y: 5 }] });
-  assert.ok(!G.legalMoves(lone).some(m => m.x === 5 && m.y === 5), 'на клетку одинокого миссионера нельзя');
+  const ln = mv(lone, m => m.x === 5 && m.y === 5); // классика: встать можно (запрет — правило «Архипелага»), боя нет
+  assert.ok(ln.pirates.filter(p => p.alive).every(p => p.x === 5 && p.y === 5)); assert.deepEqual([role(ln, 'missionary').x, role(ln, 'missionary').team], [5, 0]);
   const pair = pos({ mode: '1v1', current: 2, pirates: [{ team: 0, role: 'missionary', x: 5, y: 5 }, { team: 0, x: 5, y: 5 }, { team: 2, x: 6, y: 5 }] });
   assert.ok(!G.legalMoves(pair).some(m => m.x === 5 && m.y === 5));
   const calm = pos({ mode: '1v1', pirates: [{ team: 0, x: 5, y: 5 }, { team: 0, role: 'missionary', x: 5, y: 5 }, { team: 2, x: 6, y: 5 }] });
   assert.ok(!G.legalMoves(calm).some(m => m.pid === 0 && m.x === 6 && m.y === 5));
-  // стрелка вынуждает встать на клетку миссионера — невозможное действие, пират погибает
-  const ch = mv(pos({ mode: '1v1', current: 2, tiles: { '6,6': { kind: 'arrow1', rot: 3 } }, pirates: [{ team: 0, role: 'missionary', x: 5, y: 6 }, { team: 2, x: 7, y: 6 }, { team: 2, x: 9, y: 9 }] }), m => m.x === 6 && m.y === 6);
-  assert.equal(ch.pirates.find(p => p.team === 2 && !p.alive) != null, true); assert.ok(role(ch, 'missionary').alive);
+  // стрелка на клетку одинокого миссионера — можно; на клетку с пиратом под защитой — невозможное действие, гибель
+  const arr = (extra) => mv(pos({ mode: '1v1', current: 2, tiles: { '6,6': { kind: 'arrow1', rot: 3 } }, pirates: [{ team: 0, role: 'missionary', x: 5, y: 6 }, ...extra, { team: 2, x: 7, y: 6 }, { team: 2, x: 9, y: 9 }] }), m => m.x === 6 && m.y === 6);
+  const ok = arr([]); assert.equal(ok.pirates.filter(p => p.team === 2 && p.alive).length, 2); assert.ok(ok.pirates.some(p => p.team === 2 && p.x === 5 && p.y === 6));
+  const ko = arr([{ team: 0, x: 5, y: 6 }]); assert.equal(ko.pirates.filter(p => p.team === 2 && p.alive).length, 1); assert.ok(ko.pirates.filter(p => p.team === 0 && p.alive).length === 2);
 });
 
 test('3) джунгли: с грузом нельзя (и по стрелке — гибель, монета на старте), драться нельзя', () => {
@@ -57,4 +59,17 @@ test('6) трава в 1 на 1 (по 2 команды): круг ходов з�
   const who = []; for (let i = 0; i < 4; i++) { who.push([s.current, G.controllerOf(s)]); assert.ok(!G.legalMoves(s).some(m => m.type === 'rum' || m.rum)); s = mv(s, () => true); }
   assert.deepEqual(who, [[1, 0], [2, 1], [3, 0], [0, 1]]);
   assert.equal(s.current, 1); assert.equal(G.controllerOf(s), 1); assert.equal(s.grass, 0);
+});
+
+test('2а) опция archipelagoMissionary: к миссионеру врагам нельзя, вынужденный вход — гибель; сохраняется и проверяется', () => {
+  const o = { archipelagoMissionary: true };
+  const lone = pos({ mode: '1v1', current: 2, options: o, pirates: [{ team: 0, role: 'missionary', x: 5, y: 5 }, { team: 2, x: 6, y: 5 }] });
+  assert.ok(!G.legalMoves(lone).some(m => m.x === 5 && m.y === 5));
+  const fr = pos({ mode: '1v1', current: 2, options: o, pirates: [{ team: 0, role: 'missionary', x: 5, y: 5 }, { team: 2, role: 'friday', x: 6, y: 5 }, { team: 2, x: 9, y: 9 }] });
+  assert.ok(G.legalMoves(fr).some(m => m.x === 5 && m.y === 5), 'Пятнице можно');
+  const ch = mv(pos({ mode: '1v1', current: 2, options: o, tiles: { '6,6': { kind: 'arrow1', rot: 3 } }, pirates: [{ team: 0, role: 'missionary', x: 5, y: 6 }, { team: 2, x: 7, y: 6 }, { team: 2, x: 9, y: 9 }] }), m => m.x === 6 && m.y === 6);
+  assert.equal(ch.pirates.filter(p => p.team === 2 && p.alive).length, 1);
+  const re = G.loadState(JSON.parse(JSON.stringify(ch))); assert.equal(re.options.archipelagoMissionary, true);
+  assert.equal(G.newGame({ seed: 1 }).options.archipelagoMissionary, false);
+  assert.throws(() => pos({ options: { archipelagoMissionary: 'да' }, pirates: [{ team: 0, x: 5, y: 5 }] }), /true\/false/);
 });
