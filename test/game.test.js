@@ -167,3 +167,29 @@ test('позиции для тестировщика: hl-death и hl-coin', () =
   const c = G.classifyMoves(G.loadState(fs.readFileSync('test-positions/hl-coin.json', 'utf8')));
   assert.equal(c.find(m => m.pid === 0 && m.x === 6 && m.y === 12 && m.coin).kind, 'coin'); assert.equal(c.find(m => m.pid === 0 && m.x === 6 && m.y === 12 && !m.coin).kind, 'move');
 });
+
+// ---- v0.3.4 ----
+test('конь в море: пират плывёт, с монетой — coinLost, без — move', () => {
+  for (const coin of [true, false]) {
+    let s = pos({ tiles: { '6,10': { coins: 1 }, '5,11': { kind: 'horse' } }, pirates: [{ team: 0, x: 6, y: 10 }] });
+    s = mv(s, m => m.x === 5 && m.y === 11 && !!m.coin === coin);
+    const c = G.classifyMoves(s).find(m => m.x === 7 && m.y === 12);
+    assert.ok(c, 'есть ход в море'); assert.equal(c.kind, coin ? 'coinLost' : 'move');
+    const { kind, ...raw } = c; const n = G.applyMove(s, raw); assert.ok(n.pirates[0].alive); assert.equal(n.lost, coin ? 1 : 0);
+  }
+  assert.equal(V.hlKind([{ kind: 'coinLost' }, { kind: 'move' }]), 'coin-lost');
+  assert.equal(V.hlKind([{ kind: 'coin' }, { kind: 'coinLost' }]), 'coin');
+  assert.equal(V.hlKind([{ kind: 'death' }]), 'death');
+});
+test('подсказка «Монету можно отвезти на корабль»', () => {
+  const s = G.loadState(fs.readFileSync('test-positions/hl-coin.json', 'utf8')), c = G.classifyMoves(s);
+  assert.match(V.coinHint(c, { sel: 0 }), /включите «С монетой»/);
+  assert.equal(V.coinHint(c, { sel: 0, withCoin: true }), null);
+  assert.equal(V.coinHint(c, { sel: 1 }), null);
+});
+test('заголовок: префикс «Ход:» постоянен', () => {
+  let s = G.loadState(fs.readFileSync('test-positions/hl-coin.json', 'utf8'));
+  assert.equal(V.headerParts(s).prefix, 'Ход:');
+  s = pos({ tiles: { '6,10': { kind: 'horse' } }, pirates: [{ team: 0, x: 6, y: 11 }] }); s = mv(s, m => m.x === 6 && m.y === 10);
+  const h = V.headerParts(s); assert.equal(h.prefix, 'Ход:'); assert.match(h.text, /выберите клетку/);
+});

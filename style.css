@@ -31,3 +31,4 @@ nav button:disabled{opacity:.45;cursor:not-allowed}nav button[aria-pressed=true]
 #coinBtn{min-width:9.5em}#shipBtn{min-width:11em}#reviveBtn{min-width:8.5em}
 .cell.ship .pirate{position:absolute;width:45%;height:45%;z-index:2}
 .cell.ship .pirate img.pi{filter:drop-shadow(0 0 1.5px #fff) drop-shadow(0 0 1px #000)}
+.cell img.hl.hint{opacity:.4}

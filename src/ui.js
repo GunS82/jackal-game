@@ -46,13 +46,18 @@ function render() {
       c.append(d);
     });
     const here = targets.filter(m => m.x === x && m.y === y);
-    if (here.length) { const k = here.some(m => m.kind === 'death') && here.every(m => m.kind === 'death') ? 'death' : here.some(m => m.kind === 'coin') ? 'coin' : here.some(m => m.kind === 'death') ? 'death' : 'move'; c.classList.add('target', 'hl-' + k); c.insertAdjacentHTML('beforeend', pic(hlImg(k), '', 'hl')); }
+    const hint = sel !== 'ship' && !withCoin && moves.some(m => m.pid === sel && m.coin && m.kind === 'coin' && m.x === x && m.y === y);
+    if (hint && !here.length) { c.classList.add('hl-hint'); c.insertAdjacentHTML('beforeend', pic(hlImg('coin'), '', 'hl hint')); }
+    if (here.length) { const k = V.hlKind(here); c.classList.add('target', 'hl-' + k); c.insertAdjacentHTML('beforeend', pic(hlImg(k), '', 'hl')); }
     c.onclick = () => click(x, y, targets);
     b.append(c);
   }
   const T = G.TEAMS[s.current];
-  $('#turn').innerHTML = (s.over ? '' : `<span class="dot" style="background:${T.color}"></span> `) + V.headerText(s, { myTurn: myTurn() });
-  $('#status').textContent = notice; notice = '';
+  const hp = V.headerParts(s, { myTurn: myTurn() }), dot = $('#turnDot');
+  dot.hidden = !!s.over; dot.style.background = T.color;
+  if ($('#turnPrefix').textContent !== hp.prefix) $('#turnPrefix').textContent = hp.prefix;
+  if ($('#turnText').textContent !== hp.text) $('#turnText').textContent = hp.text;
+  $('#status').textContent = notice || V.coinHint(moves, { sel, withCoin }) || ''; notice = '';
   const sc = G.sideScores(s);
   $('#score').innerHTML = Object.keys(sc).map(k => `${G.sideName(s, +k)}: <b>${sc[k]}</b>`).join(' · ') + ` · осталось ${G.coinsLeft(s)} · утонуло ${s.lost} · ром: ${G.activeTeams(s.mode).map(t => s.rum[t]).join('/')}`;
   const bs = V.buttons(s, moves, { sel, withCoin, myTurn: myTurn() });
