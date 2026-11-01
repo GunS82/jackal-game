@@ -140,7 +140,8 @@ export function pirateMoves(s, p) {
       if (coin && (!t.open || t.kind === 'fort' || t.kind === 'abor' || t.kind === 'jungle')) continue;
       if (enemies.length && t.open && (t.kind === 'fort' || t.kind === 'abor')) continue;
       if (coin && enemies.length && !(t.open && SPIN[t.kind]) && !s.pending) continue;
-      if (!jungle && enemies.length && (calm || all.some(q => q.role === 'missionary'))) continue; // миссионер защищает и обезоруживает
+      if (!jungle && enemies.length && calm) continue; // рядом с миссионером атаковать нельзя
+      if (!jungle && p.role !== 'friday' && all.some(q => q.role === 'missionary')) continue; // «Миссионер… сам не может быть атакован» — на его клетку враги не встают (кроме Пятницы — «встретит Пятницу»)
       if (p.role === 'missionary' && all.some(q => q.role !== 'friday') && !jungle) continue; // миссионер не заходит к врагам (встреча с Пятницей — можно)
       if (p.role === 'friday' && enemies.length) continue; // Пятница никого не атакует
       add(x, y, via, coin, treasure);
@@ -285,8 +286,24 @@ function walk(s, p, x, y, via, v) {
       if (caveExits(s, p).length) { s.pending = { type: 'cave', pid: p.id, coin: v > 0, treasure: v === TREASURE_VALUE, origin, visits }; return; }
       p.inCave = true; p.carry = v; msg(s, `🕳 ${pname(s, p)} бродит в пещере`); return;
     }
+    // «Любое невозможное действие приводит к смерти пирата. Монета остаётся там, где пират начинал ход.»
+    const why = impossible(s, p, x, y, t, v, calm);
+    if (why) { p.x = x; p.y = y; if (v) { if (isIsland(origin[0], origin[1])) put(tileAt(s, origin[0], origin[1]), v); else s.lost += v; } die(s, p, why); return; }
     return stand(x, y, t, fresh);
   }
+}
+function impossible(s, p, x, y, t, v, calm) {
+  if (SPIN[t.kind]) return null;
+  const all = here(s, x, y).filter(q => q !== p && !allied(s, q.team, p.team));
+  if (t.kind === 'jungle') return v ? 'в джунгли нельзя с грузом' : null;
+  if (v && (t.kind === 'fort' || t.kind === 'abor')) return 'в крепость нельзя с грузом';
+  if (p.role === 'friday') return all.some(q => q.role !== 'missionary') ? 'Пятница не может атаковать' : null;
+  if (p.role === 'missionary') return all.some(q => q.role !== 'friday') ? 'миссионер не заходит к врагам' : null;
+  if (all.some(q => q.role === 'missionary')) return 'миссионера и пиратов рядом с ним атаковать нельзя';
+  if (!all.length) return null;
+  if (t.kind === 'fort' || t.kind === 'abor') return 'крепость занята врагом';
+  if (calm) return 'рядом с миссионером атаковать нельзя';
+  return null;
 }
 
 // Чистая функция: возвращает новое состояние, исходное не меняется.
