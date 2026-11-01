@@ -118,3 +118,12 @@ const GEN = { 'Белые': 'Белых', 'Чёрные': 'Чёрных', 'Жё�
 export function youAreText(s, player) { const t = G.teamsOfPlayer(s, player)[0]; return t == null ? '' : `Вы играете за ${GEN[G.TEAMS[t].name] ?? G.TEAMS[t].name}`; }
 // Подсказка про игру по файлам — только в режиме файлов (не онлайн и не hot-seat).
 export const showFileHelp = ({ online, me }) => !online && me !== 'all';
+
+// Панель команды: обычные пираты с номерами 1–3 (погибшие — тусклые), за разделителем — персонажи без номера (до 6 фишек).
+const CHAR_ROLES = ['bengunn', 'friday', 'missionary', 'exmissionary'];
+export function crewPanel(s, team) {
+  const mine = s.pirates.filter(p => p.team === team);
+  const regular = mine.filter(p => !p.role).slice(0, 3).map((p, i) => ({ pid: p.id, num: i + 1, alive: p.alive, role: null }));
+  const chars = mine.filter(p => p.alive && CHAR_ROLES.includes(p.role)).sort((a, b) => CHAR_ROLES.indexOf(a.role) - CHAR_ROLES.indexOf(b.role)).map(p => ({ pid: p.id, num: null, alive: true, role: p.role }));
+  return { team, regular, chars };
+}

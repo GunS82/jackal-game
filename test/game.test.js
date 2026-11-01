@@ -213,3 +213,24 @@ test('итог партии: ничья только при равном счё�
   assert.match(V.resultText(end([3, 1, 2, 0], 'majority')), /Победа: Игрок 1/);
   assert.match(V.headerText(end([0, 0, 0, 0], 'noShips')), /Ничья/);
 });
+
+test('v0.5.4: панель команды — пираты 1–3, за разделителем персонажи без номера; фишки персонажей', async () => {
+  const A = await import('../src/assets.js');
+  const s = G.newGame({ mode: '1v1', seed: 5 });
+  s.pirates.push({ id: s.pirates.length, team: 0, x: 5, y: 5, alive: true, spin: 0, trapped: false, drunkUntil: 0, carry: 0, role: 'friday' });
+  s.pirates.push({ id: s.pirates.length, team: 0, x: 5, y: 5, alive: true, spin: 0, trapped: false, drunkUntil: 0, carry: 0, role: 'bengunn' });
+  s.pirates.push({ id: s.pirates.length, team: 0, x: 5, y: 5, alive: true, spin: 0, trapped: false, drunkUntil: 0, carry: 0, role: 'missionary' });
+  s.pirates[1].alive = false;
+  const cp = V.crewPanel(s, 0);
+  assert.deepEqual(cp.regular.map(t => [t.num, t.alive]), [[1, true], [2, false], [3, true]]);
+  assert.deepEqual(cp.chars.map(t => [t.role, t.num]), [['bengunn', null], ['friday', null], ['missionary', null]]);
+  assert.ok(cp.regular.length + cp.chars.length <= 6);
+  const fr = s.pirates.find(p => p.role === 'friday');
+  assert.equal(A.pieceImg(fr), 'assets/pieces/friday-white.svg');
+  fr.team = 2; assert.equal(A.pieceImg(fr), 'assets/pieces/friday-black.svg'); // Пятница перешёл — другая рамка
+  assert.deepEqual(V.crewPanel(s, 2).chars.map(t => t.role), ['friday']); assert.equal(V.crewPanel(s, 0).chars.length, 2);
+  assert.equal(A.pieceImg(s.pirates[0]), 'assets/pieces/pirate-white.svg');
+  assert.equal(A.pieceImg({ team: 2, role: 'exmissionary' }), 'assets/pieces/pirate-black.svg');
+  const fs = await import('node:fs');
+  for (const r of A.CHAR_TOKENS) for (const c of A.TEAM_COLOR) assert.ok(fs.existsSync(new URL(`../assets/pieces/${r}-${c}.svg`, import.meta.url)), r + c);
+});

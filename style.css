@@ -48,3 +48,14 @@ nav button:disabled{opacity:.45;cursor:not-allowed}nav button[aria-pressed=true]
 .codebox{display:flex;gap:8px;justify-content:center}.codebox span{display:inline-block;width:1.6em;padding:.2em 0;text-align:center;font:bold 1.6em sans-serif;border:2px solid #5a3a1a;border-radius:8px;background:#fff}
 #online input{font-size:1.1em;width:100%;box-sizing:border-box;padding:.4em;text-transform:uppercase}#online button{display:block;width:100%;margin:.4em 0}#online hr{border:0;border-top:2px dashed #b89a6a;margin:1em 0}
 .you-are { padding: 2px 8px; border: 2px solid; border-radius: 6px; font-size: .9em; }
+
+/* v0.5.4: панель команды — до 6 фишек, на узком экране сжимается */
+.crew{display:flex;align-items:center;justify-content:center;gap:clamp(2px,1vw,6px);margin:4px auto;max-width:100%}
+.crew .tok{position:relative;width:clamp(28px,12vw,44px);height:clamp(28px,12vw,44px);flex:0 1 auto;min-width:0;padding:0;border:3px solid var(--team);border-radius:50%;background:#fff;cursor:pointer}
+.crew .tok img{width:100%;height:100%;display:block}
+.crew .tok b{position:absolute;right:-4px;bottom:-4px;min-width:1.2em;font-size:clamp(10px,3vw,13px);line-height:1.2em;border-radius:50%;background:var(--team);color:#fff;text-shadow:0 0 2px #000}
+.crew .tok i{position:absolute;left:-4px;top:-4px;font-style:normal;font-size:12px}
+.crew .tok.sel{box-shadow:0 0 0 3px #f0c419}
+.crew .tok[disabled]{cursor:default;opacity:.75}.crew .tok.dead{opacity:.3;filter:grayscale(1)}
+.crew .div{width:1px;align-self:stretch;margin:4px clamp(2px,1vw,6px);background:#8886}
+.banner[hidden],.crew[hidden],.you-are[hidden]{display:none}

@@ -1,7 +1,7 @@
 import * as G from './game.js';
 import * as V from './view.js';
 import * as Net from './net.js';
-import { ASSETS, ARROW_GLYPH, ROLE_BADGE, tileImg, pirateImg, shipImg, coinImg, treasureImg, hlImg } from './assets.js';
+import { ASSETS, ARROW_GLYPH, ROLE_BADGE, tileImg, pirateImg, pieceImg, shipImg, coinImg, treasureImg, hlImg } from './assets.js';
 const tileName = t => !t.open ? 'закрытая клетка' : t.kind === 'arrow' ? 'стрелка ' + t.dirs.map(d => ARROW_GLYPH[d.join(',')]).join('') : (t.kind === 'plane' && t.used ? 'пусто' : ASSETS[t.kind]?.label ?? t.kind) + (t.coins ? `, монет: ${t.coins}` : '') + (t.treasure ? ', сокровище (3 монеты)' : '');
 const $ = s => document.querySelector(s);
 let state = null, sel = null, withCoin = false, notice = '';
@@ -47,7 +47,7 @@ function render() {
       const mark = V.coinMark(s, p, moves, { sel, withCoin, myTurn: myTurn() }), coin = mark === 'coin' || mark === 'treasure', tre = mark === 'treasure';
       d.className = `pirate n${ps.length} i${i}` + (p.id === sel ? ' sel' : '') + (p.trapped ? ' trapped' : '') + (p.inCave ? ' incave' : '');
       d.title = G.pieceName(s, p) + (coin ? (tre ? ', несёт сокровище' : ', несёт монету') : '') + (p.trapped ? ', в капкане' : '') + (p.inCave ? ', в пещере' : '') + (mark === 'can' ? ', может взять монету' : mark === 'canTreasure' ? ', может взять сокровище' : '');
-      d.innerHTML = pic(pirateImg(p.team), '●', 'pi') + (coin ? (tre ? pic(treasureImg, '💰', 'pcoin ptre') : pic(coinImg, '🪙', 'pcoin')) : mark === 'can' ? pic(coinImg, '🪙', 'pcoin can') : mark === 'canTreasure' ? pic(treasureImg, '💰', 'pcoin ptre can') : '') + (p.spin ? `<em>${p.spin}</em>` : '') + (p.role ? `<b class="role">${ROLE_BADGE[p.role]}</b>` : '');
+      d.innerHTML = pic(pieceImg(p), '●', 'pi') + (coin ? (tre ? pic(treasureImg, '💰', 'pcoin ptre') : pic(coinImg, '🪙', 'pcoin')) : mark === 'can' ? pic(coinImg, '🪙', 'pcoin can') : mark === 'canTreasure' ? pic(treasureImg, '💰', 'pcoin ptre can') : '') + (p.spin ? `<em>${p.spin}</em>` : '') + (p.role === 'exmissionary' ? `<b class="role">${ROLE_BADGE[p.role]}</b>` : '');
       c.append(d);
     });
     const here = targets.filter(m => m.x === x && m.y === y);
@@ -71,8 +71,17 @@ function render() {
   if (s.pending && (!s.pending.type || s.pending.type === 'cave') && myTurn() && sel !== s.pending.pid) { sel = s.pending.pid; withCoin = s.pending.treasure ? 'T' : s.pending.coin; return render(); }
   const ya = $('#youAre'); ya.hidden = !net; if (net) { ya.textContent = V.youAreText(s, net.sess.player); ya.style.borderColor = G.TEAMS[G.teamsOfPlayer(s, net.sess.player)[0]]?.color ?? ''; }
   $('#fileHelp').hidden = !V.showFileHelp({ online: !!net, me });
+  renderCrew(s, moves);
   renderBanner();
   if (!net) localStorage.setItem('jackal-save', G.serialize(s));
+}
+function renderCrew(s, moves) {
+  const cp = V.crewPanel(s, s.current), el = $('#crew'), color = G.TEAMS[s.current].color, can = new Set(moves.map(m => m.pid));
+  const tok = t => { const p = s.pirates[t.pid];
+    return `<button class="tok${t.alive ? '' : ' dead'}${t.pid === sel ? ' sel' : ''}" data-pid="${t.pid}" style="--team:${color}" title="${G.pieceName(s, p)}${t.alive ? '' : ' — погиб'}"${t.alive && can.has(t.pid) && myTurn() ? '' : ' disabled'}>${pic(pieceImg(p), '●', 'ti')}${t.num ? `<b>${t.num}</b>` : ''}${p.role === 'exmissionary' ? '<i>✝</i>' : ''}</button>`; };
+  el.innerHTML = cp.regular.map(tok).join('') + (cp.chars.length ? '<span class="div"></span>' + cp.chars.map(tok).join('') : '');
+  el.hidden = !!s.over;
+  el.querySelectorAll('.tok:not([disabled])').forEach(b => b.onclick = () => { sel = +b.dataset.pid; const c = state.pirates[sel].carry; withCoin = c === G.TREASURE_VALUE ? 'T' : !!c; render(); });
 }
 function renderBanner() {
   const el = $('#banner'), b = net && V.onlineBanner(state, { player: net.sess.player, connected: net.connected, opponent: net.opponent, gone: net.gone });

@@ -53,6 +53,9 @@ export function tileImg(t) {
   return ASSETS[t.kind]?.img ? `assets/tiles/${t.kind}.svg` : null;
 }
 export const pirateImg = team => `assets/pieces/pirate-${TEAM_COLOR[team]}.svg`;
+// Персонажи со своими фишками (v0.5.4); экс-миссионер — обычная фишка пирата со значком ✝.
+export const CHAR_TOKENS = ['bengunn', 'friday', 'missionary'];
+export const pieceImg = p => CHAR_TOKENS.includes(p.role) ? `assets/pieces/${p.role}-${TEAM_COLOR[p.team]}.svg` : pirateImg(p.team);
 export const shipImg = team => `assets/pieces/ship-${TEAM_COLOR[team]}.svg`;
 export const coinImg = 'assets/pieces/coin.svg';
 export const treasureImg = 'assets/pieces/treasure.svg';
