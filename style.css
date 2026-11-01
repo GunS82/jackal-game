@@ -109,3 +109,4 @@ nav button:disabled{opacity:.45;cursor:not-allowed}nav button[aria-pressed=true]
 #log .ln{flex:none;min-width:2.6em;font-variant-numeric:tabular-nums;opacity:.85}
 #log .dot{flex:none;width:8px;height:8px;border-radius:50%;background:var(--team);box-shadow:0 0 0 1px #0008;align-self:center}
 #log li:first-child{opacity:1}#log li+li{opacity:.8}
+#log .dot{border:1.5px solid #5a3b1e;box-sizing:content-box;box-shadow:none}

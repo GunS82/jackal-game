@@ -504,3 +504,9 @@ test('v0.5.16: журнал — история: «Журнал», №хода + 
   assert.match(css, /#log\{[^}]*color:#b9c7cc/); assert.match(css, /#log \.dot\{[^}]*border-radius:50%/);
   assert.ok(parseInt(css.match(/#log\{[^}]*font:(\d+)px/)[1]) < 14, 'мельче статуса (14px)');
 });
+
+test('v0.5.17: точка команды в журнале — контур 1.5px solid #5a3b1e', () => {
+  const css = fs.readFileSync(new URL('../style.css', import.meta.url), 'utf8');
+  const rules = [...css.matchAll(/#log \.dot\{([^}]*)\}/g)].map(m => m[1]).join(';');
+  assert.match(rules, /border:1\.5px solid #5a3b1e/);
+});
