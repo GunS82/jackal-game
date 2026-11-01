@@ -19,14 +19,16 @@ export function createServer({ rooms = new Rooms() } = {}) {
       if (url.pathname === '/api/events' && req.method === 'GET') {
         const r = rooms.get(url.searchParams.get('code')), player = rooms.seat(r, url.searchParams.get('token'));
         res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store', connection: 'keep-alive' });
-        const sub = { player, send: v => res.write(`data: ${JSON.stringify(v)}\n\n`) };
+        const sub = { player, send: v => res.write(`data: ${JSON.stringify(v)}\n\n`), close: () => res.end() };
         r.subs.add(sub); rooms.setOnline(r, player, true);
         const ping = setInterval(() => res.write(': ping\n\n'), 20000);
         req.on('close', () => { clearInterval(ping); r.subs.delete(sub); if (![...r.subs].some(s => s.player === player)) rooms.setOnline(r, player, false); });
         return;
       }
       if (req.method === 'POST' && url.pathname.startsWith('/api/')) {
-        const b = await body(req), act = url.pathname.slice(5);
+        const b = await body(req);
+        if (!b || typeof b !== 'object' || Array.isArray(b)) throw httpErr(400, 'Тело запроса должно быть JSON-объектом');
+        const act = url.pathname.slice(5);
         if (act === 'create') return json(res, 200, rooms.create(b.options));
         if (act === 'join') return json(res, 200, rooms.join(b.code));
         if (act === 'move') { rooms.move(b.code, b.token, b.move); return json(res, 200, { ok: true }); }

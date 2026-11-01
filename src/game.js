@@ -358,6 +358,7 @@ export function applyMove(s0, m, { asPlayer = null } = {}) {
 }
 
 export function coinsLeft(s) {
+  if (typeof s.coinsTotalLeft === 'number') return s.coinsTotalLeft; // публичное состояние: итог посчитан на сервере
   let n = s.pending?.treasure ? TREASURE_VALUE : s.pending?.coin ? 1 : 0;
   for (const p of s.pirates) if (p.alive && p.carry) n += p.carry === true ? 1 : p.carry;
   for (const t of Object.values(s.tiles)) n += t.coins + (t.treasure || 0) * TREASURE_VALUE + (!t.open && CHEST[t.kind] ? CHEST[t.kind] : 0) + (!t.open && t.kind === 'galleon' ? TREASURE_VALUE : 0);
@@ -490,6 +491,7 @@ export function classifyMoves(s) {
 // Публичное состояние: содержимое закрытых клеток и seed раздачи скрыты (для показа в UI и отправки клиентам).
 export function publicState(s) {
   const p = JSON.parse(JSON.stringify(s)); p.seed = null;
+  p.coinsTotalLeft = coinsLeft(s); // только общее число — без раскладки по клеткам
   for (const k of Object.keys(p.tiles)) { const t = p.tiles[k]; if (!t.open) p.tiles[k] = { kind: 'empty', open: false, coins: 0 }; }
   return p;
 }

@@ -81,3 +81,38 @@ test('publicState: подсветка не выдаёт закрытого лю�
   assert.equal(V.onlineBanner(s, { player: 0, opponent: 'offline' }).title, 'Соперник вышел');
   assert.equal(V.onlineBanner({ ...s, over: true }, { player: 0 }), null);
 });
+
+test('v0.5.1: тело запроса null/не объект → 400, а не 500', async () => {
+  const { srv, base } = await start();
+  try {
+    for (const raw of ['null', '5', '"x"', '[1]', 'true', '{bad'])
+      for (const act of ['create', 'join', 'move', 'leave']) {
+        const r = await fetch(base + '/api/' + act, { method: 'POST', headers: { 'content-type': 'application/json' }, body: raw });
+        assert.equal(r.status, 400, act + ' ' + raw); assert.ok((await r.json()).error);
+      }
+    assert.equal((await fetch(base + '/api/create', { method: 'POST', body: '{}' })).status, 200);
+  } finally { srv.closeAllConnections(); srv.close(); }
+});
+
+test('v0.5.1: уборка комнат — простой >24 ч и законченные партии через 1 ч (подставные часы)', () => {
+  let t = 1e6; const rooms = new Rooms({ now: () => t, sweepMs: 0 });
+  const idle = rooms.create(), live = rooms.create(), done = rooms.create(); rooms.join(done.code);
+  let closed = 0; rooms.get(idle.code).subs.add({ player: 0, send() {}, close: () => closed++ });
+  t += 23 * 3600e3; rooms.touch(rooms.get(live.code));
+  const d = rooms.get(done.code); d.state.over = true; rooms.touch(d);
+  assert.equal(rooms.sweep(), 0);
+  t += 3600e3 + 1; assert.equal(rooms.sweep(), 2); // idle: 24ч+1, done: 1ч+1
+  assert.equal(closed, 1); assert.throws(() => rooms.get(idle.code), /не найдена/); assert.throws(() => rooms.get(done.code));
+  assert.ok(rooms.get(live.code));
+  t += 22 * 3600e3; assert.equal(rooms.sweep(), 0); t += 2 * 3600e3; assert.equal(rooms.sweep(), 1); assert.equal(rooms.rooms.size, 0);
+  const r2 = new Rooms({ sweepMs: 50 }); assert.equal(r2.timer.hasRef(), false); r2.stop();
+});
+
+test('v0.5.1: publicState несёт coinsTotalLeft, клиентский coinsLeft его использует, раскладки нет', () => {
+  const s = G.newGame({ mode: '1v1', seed: 7 }), p = G.publicState(s);
+  assert.equal(p.coinsTotalLeft, G.coinsLeft(s)); assert.equal(G.coinsLeft(p), G.TOTAL_COINS);
+  assert.ok(Object.values(p.tiles).filter(t => !t.open).every(t => t.kind === 'empty' && t.coins === 0 && !t.treasure));
+  delete p.coinsTotalLeft; assert.equal(G.coinsLeft(p), 0); // без поля скрытые монеты не видны — поэтому оно и нужно
+  const rooms = new Rooms({ sweepMs: 0 }), a = rooms.create(); rooms.join(a.code);
+  assert.equal(rooms.view(rooms.get(a.code), 1).state.coinsTotalLeft, G.TOTAL_COINS);
+});
