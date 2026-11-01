@@ -62,7 +62,7 @@ npm run dev:cf
 npm run deploy:cf
 ```
 
-После первой публикации добавьте выданный адрес `workers.dev` в GitHub repository variable `SERVER_URL`, затем запустите workflow **Deploy client to GitHub Pages**. Подробные шаги и лимиты тарифа описаны в [DEPLOY.md](DEPLOY.md).
+Текущий Worker опубликован по адресу `https://jackal-game-server.telmanhans5.workers.dev`; GitHub repository variable `SERVER_URL` уже настроена, а Pages опубликован. При смене адреса обновите переменную и повторно запустите workflow **Deploy client to GitHub Pages**. Подробные шаги и лимиты тарифа описаны в [DEPLOY.md](DEPLOY.md).
 
 Для локального Node-сервера используйте `npm run server`. Адрес для ручной проверки можно переопределить в клиенте через `?server=https://…`; `?server=default` удаляет это переопределение.
 

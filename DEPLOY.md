@@ -22,6 +22,8 @@ npm run sim
 
 ## Cloudflare Worker
 
+Текущий production Worker: `https://jackal-game-server.telmanhans5.workers.dev`. Repository variable `SERVER_URL` настроена на этот адрес, GitHub Pages опубликован и `/health` отвечает `200`.
+
 1. Создайте аккаунт Cloudflare и войдите локально:
 
    ```sh
