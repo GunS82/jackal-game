@@ -134,12 +134,12 @@ function click(x, y, targets) {
   const hit = targets.find(m => m.x === x && m.y === y);
   if (hit) { const { kind, ...mv } = hit; return play(mv); }
   if (sel === 'rum') { sel = null; return render(); }
-  if (!myTurn()) return;
+  if (!myTurn()) { const n = V.turnNotice(state, x, y); if (n) { notice = n; render(); } return; }
   if (state.pending) { const p = state.pirates[state.pending.pid]; if (state.pending.type === 'lighthouse' || state.pending.type === 'quake' || !(p.x === x && p.y === y)) { notice = V.blockedNotice(state); render(); } return; }
   const mine = state.pirates.filter(p => p.alive && p.x === x && p.y === y && p.team === state.current && G.pirateMoves(state, p).length);
   if (mine.length > 1) { plate = { x, y, pids: mine.map(p => p.id) }; if (!mine.some(p => p.id === sel)) sel = null; } // несколько своих — плашка выбора
   else if (mine.length) { plate = null; return choose(mine[0].id); }
-  else { sel = null; plate = null; notice = V.drunkNotice(state, x, y) || ''; }
+  else { sel = null; plate = null; notice = V.drunkNotice(state, x, y) || V.turnNotice(state, x, y) || ''; }
   render();
 }
 

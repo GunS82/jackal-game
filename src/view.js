@@ -174,6 +174,13 @@ export function resumeInfo(raw) {
 }
 
 // v0.5.8: свои пираты на клетке не могут ходить, потому что пьяны (ром) — подсказка вместо «ничего не произошло».
+// Нажали на чужих пиратов (например, на корабль чёрных в ход белых) — объяснить, почему ничего не выбрано.
+export function turnNotice(s, x, y) {
+  if (!s || s.over || s.pending) return null;
+  const here = s.pirates.filter(p => p.alive && p.x === x && p.y === y);
+  if (!here.length || here.some(p => p.team === s.current)) return null;
+  return `Сейчас ход: ${G.TEAMS[s.current].name}`;
+}
 export function drunkNotice(s, x, y) {
   if (!s || s.over || s.pending) return null;
   const own = s.pirates.filter(p => p.alive && p.x === x && p.y === y && p.team === s.current);

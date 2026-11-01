@@ -235,7 +235,7 @@ function walk(s, p, x, y, via, v) {
     const friends = here(s, x, y).filter(q => q !== p && allied(s, q.team, p.team));
     friends.forEach(q => q.trapped = false);
     if (t.kind === 'trap') p.trapped = friends.length === 0 && via !== 'spin' && p.role !== 'friday'; // Пятница не падает в ямы
-    if (t.kind === 'barrel') p.drunkUntil = s.turn + 4 + 1;
+    if (t.kind === 'barrel') p.drunkUntil = s.turn + activeTeams(s.mode).length + 1; // бочонок: пропустить ровно один свой ход (в 1v1 команд две, в 2p/2v2/4p — четыре)
     if (v) { if (SPIN[t.kind]) p.carry = v; else put(t, v); } // на вертушке груз едет «в руках»
     let ev = null;
     if (fresh || t.lit) { delete t.lit; ev = effect(s, t, p, x, y); }

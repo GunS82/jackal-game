@@ -1,0 +1,976 @@
+{
+ "version": 3,
+ "seed": 5100,
+ "mode": "1v1",
+ "turn": 0,
+ "grass": 0,
+ "current": 0,
+ "options": {
+  "houseCrocDeath": false,
+  "archipelagoMissionary": false
+ },
+ "pending": null,
+ "endReason": null,
+ "moves": [],
+ "tiles": {
+  "2,1": {
+   "kind": "croc",
+   "open": false,
+   "coins": 0
+  },
+  "3,1": {
+   "kind": "chest3",
+   "open": false,
+   "coins": 0
+  },
+  "4,1": {
+   "kind": "balloon",
+   "open": false,
+   "coins": 0
+  },
+  "5,1": {
+   "kind": "cave",
+   "open": false,
+   "coins": 0
+  },
+  "6,1": {
+   "kind": "empty",
+   "open": false,
+   "coins": 0
+  },
+  "7,1": {
+   "kind": "arrow",
+   "open": false,
+   "coins": 0,
+   "arrow": "arrow1",
+   "rot": 1,
+   "dirs": [
+    [
+     1,
+     0
+    ]
+   ]
+  },
+  "8,1": {
+   "kind": "croc",
+   "open": false,
+   "coins": 0
+  },
+  "9,1": {
+   "kind": "ice",
+   "open": false,
+   "coins": 0
+  },
+  "10,1": {
+   "kind": "arrow",
+   "open": false,
+   "coins": 0,
+   "arrow": "arrow1d",
+   "rot": 0,
+   "dirs": [
+    [
+     1,
+     -1
+    ]
+   ]
+  },
+  "1,2": {
+   "kind": "barrel",
+   "open": false,
+   "coins": 0
+  },
+  "2,2": {
+   "kind": "ice",
+   "open": false,
+   "coins": 0
+  },
+  "3,2": {
+   "kind": "arrow",
+   "open": false,
+   "coins": 0,
+   "arrow": "arrow2d",
+   "rot": 0,
+   "dirs": [
+    [
+     1,
+     -1
+    ],
+    [
+     -1,
+     1
+    ]
+   ]
+  },
+  "4,2": {
+   "kind": "chest2",
+   "open": false,
+   "coins": 0
+  },
+  "5,2": {
+   "kind": "empty",
+   "open": false,
+   "coins": 0
+  },
+  "6,2": {
+   "kind": "empty",
+   "open": false,
+   "coins": 0
+  },
+  "7,2": {
+   "kind": "spin2",
+   "open": false,
+   "coins": 0
+  },
+  "8,2": {
+   "kind": "spin2",
+   "open": false,
+   "coins": 0
+  },
+  "9,2": {
+   "kind": "empty",
+   "open": false,
+   "coins": 0
+  },
+  "10,2": {
+   "kind": "balloon",
+   "open": false,
+   "coins": 0
+  },
+  "11,2": {
+   "kind": "empty",
+   "open": false,
+   "coins": 0
+  },
+  "1,3": {
+   "kind": "ice",
+   "open": false,
+   "coins": 0
+  },
+  "2,3": {
+   "kind": "rum1",
+   "open": false,
+   "coins": 0
+  },
+  "3,3": {
+   "kind": "arrow",
+   "open": false,
+   "coins": 0,
+   "arrow": "arrow3",
+   "rot": 3,
+   "dirs": [
+    [
+     -1,
+     1
+    ],
+    [
+     0,
+     -1
+    ],
+    [
+     1,
+     0
+    ]
+   ]
+  },
+  "4,3": {
+   "kind": "arrow",
+   "open": false,
+   "coins": 0,
+   "arrow": "arrow2d",
+   "rot": 2,
+   "dirs": [
+    [
+     -1,
+     1
+    ],
+    [
+     1,
+     -1
+    ]
+   ]
+  },
+  "5,3": {
+   "kind": "arrow",
+   "open": false,
+   "coins": 0,
+   "arrow": "arrow3",
+   "rot": 0,
+   "dirs": [
+    [
+     -1,
+     -1
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     0,
+     1
+    ]
+   ]
+  },
+  "6,3": {
+   "kind": "jungle",
+   "open": false,
+   "coins": 0
+  },
+  "7,3": {
+   "kind": "arrow",
+   "open": false,
+   "coins": 0,
+   "arrow": "arrow1",
+   "rot": 2,
+   "dirs": [
+    [
+     0,
+     1
+    ]
+   ]
+  },
+  "8,3": {
+   "kind": "spin3",
+   "open": false,
+   "coins": 0
+  },
+  "9,3": {
+   "kind": "chest1",
+   "open": false,
+   "coins": 0
+  },
+  "10,3": {
+   "kind": "rum1",
+   "open": false,
+   "coins": 0
+  },
+  "11,3": {
+   "kind": "rum3",
+   "open": false,
+   "coins": 0
+  },
+  "1,4": {
+   "kind": "arrow",
+   "open": false,
+   "coins": 0,
+   "arrow": "arrow1d",
+   "rot": 1,
+   "dirs": [
+    [
+     1,
+     1
+    ]
+   ]
+  },
+  "2,4": {
+   "kind": "chest5",
+   "open": false,
+   "coins": 0
+  },
+  "3,4": {
+   "kind": "chest3",
+   "open": false,
+   "coins": 0
+  },
+  "4,4": {
+   "kind": "spin5",
+   "open": false,
+   "coins": 0
+  },
+  "5,4": {
+   "kind": "spin4",
+   "open": false,
+   "coins": 0
+  },
+  "6,4": {
+   "kind": "rum2",
+   "open": false,
+   "coins": 0
+  },
+  "7,4": {
+   "kind": "empty",
+   "open": false,
+   "coins": 0
+  },
+  "8,4": {
+   "kind": "cannon",
+   "open": false,
+   "coins": 0,
+   "dirs": [
+    [
+     -1,
+     0
+    ]
+   ],
+   "rot": 3
+  },
+  "9,4": {
+   "kind": "cave",
+   "open": false,
+   "coins": 0
+  },
+  "10,4": {
+   "kind": "chest1",
+   "open": false,
+   "coins": 0
+  },
+  "11,4": {
+   "kind": "bengunn",
+   "open": false,
+   "coins": 0
+  },
+  "1,5": {
+   "kind": "empty",
+   "open": false,
+   "coins": 0
+  },
+  "2,5": {
+   "kind": "lighthouse",
+   "open": false,
+   "coins": 0
+  },
+  "3,5": {
+   "kind": "arrow",
+   "open": false,
+   "coins": 0,
+   "arrow": "arrow2",
+   "rot": 0,
+   "dirs": [
+    [
+     0,
+     -1
+    ],
+    [
+     0,
+     1
+    ]
+   ]
+  },
+  "4,5": {
+   "kind": "trap",
+   "open": false,
+   "coins": 0
+  },
+  "5,5": {
+   "kind": "ice",
+   "open": false,
+   "coins": 0
+  },
+  "6,5": {
+   "kind": "spin3",
+   "open": false,
+   "coins": 0
+  },
+  "7,5": {
+   "kind": "chest2",
+   "open": false,
+   "coins": 0
+  },
+  "8,5": {
+   "kind": "ogre",
+   "open": false,
+   "coins": 0
+  },
+  "9,5": {
+   "kind": "chest2",
+   "open": false,
+   "coins": 0
+  },
+  "10,5": {
+   "kind": "empty",
+   "open": false,
+   "coins": 0
+  },
+  "11,5": {
+   "kind": "quake",
+   "open": false,
+   "coins": 0
+  },
+  "1,6": {
+   "kind": "empty",
+   "open": true,
+   "coins": 0
+  },
+  "2,6": {
+   "kind": "grass",
+   "open": false,
+   "coins": 0
+  },
+  "3,6": {
+   "kind": "arrow",
+   "open": false,
+   "coins": 0,
+   "arrow": "arrow4",
+   "rot": 0,
+   "dirs": [
+    [
+     0,
+     -1
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     -1,
+     0
+    ]
+   ]
+  },
+  "4,6": {
+   "kind": "spin2",
+   "open": false,
+   "coins": 0
+  },
+  "5,6": {
+   "kind": "chest4",
+   "open": false,
+   "coins": 0
+  },
+  "6,6": {
+   "kind": "chest4",
+   "open": false,
+   "coins": 0
+  },
+  "7,6": {
+   "kind": "caramba",
+   "open": false,
+   "coins": 0
+  },
+  "8,6": {
+   "kind": "trap",
+   "open": false,
+   "coins": 0
+  },
+  "9,6": {
+   "kind": "rum1",
+   "open": false,
+   "coins": 0
+  },
+  "10,6": {
+   "kind": "abor",
+   "open": false,
+   "coins": 0
+  },
+  "11,6": {
+   "kind": "jungle",
+   "open": false,
+   "coins": 0
+  },
+  "1,7": {
+   "kind": "arrow",
+   "open": false,
+   "coins": 0,
+   "arrow": "arrow1",
+   "rot": 2,
+   "dirs": [
+    [
+     0,
+     1
+    ]
+   ]
+  },
+  "2,7": {
+   "kind": "ice",
+   "open": false,
+   "coins": 0
+  },
+  "3,7": {
+   "kind": "trap",
+   "open": false,
+   "coins": 0
+  },
+  "4,7": {
+   "kind": "chest2",
+   "open": false,
+   "coins": 0
+  },
+  "5,7": {
+   "kind": "empty",
+   "open": false,
+   "coins": 0
+  },
+  "6,7": {
+   "kind": "barrel",
+   "open": false,
+   "coins": 0
+  },
+  "7,7": {
+   "kind": "empty",
+   "open": false,
+   "coins": 0
+  },
+  "8,7": {
+   "kind": "barrel",
+   "open": false,
+   "coins": 0
+  },
+  "9,7": {
+   "kind": "jungle",
+   "open": false,
+   "coins": 0
+  },
+  "10,7": {
+   "kind": "arrow",
+   "open": false,
+   "coins": 0,
+   "arrow": "arrow2",
+   "rot": 0,
+   "dirs": [
+    [
+     0,
+     -1
+    ],
+    [
+     0,
+     1
+    ]
+   ]
+  },
+  "11,7": {
+   "kind": "spin2",
+   "open": false,
+   "coins": 0
+  },
+  "1,8": {
+   "kind": "chest1",
+   "open": false,
+   "coins": 0
+  },
+  "2,8": {
+   "kind": "croc",
+   "open": false,
+   "coins": 0
+  },
+  "3,8": {
+   "kind": "arrow",
+   "open": false,
+   "coins": 0,
+   "arrow": "arrow4d",
+   "rot": 2,
+   "dirs": [
+    [
+     -1,
+     1
+    ],
+    [
+     -1,
+     -1
+    ],
+    [
+     1,
+     -1
+    ],
+    [
+     1,
+     1
+    ]
+   ]
+  },
+  "4,8": {
+   "kind": "empty",
+   "open": false,
+   "coins": 0
+  },
+  "5,8": {
+   "kind": "empty",
+   "open": false,
+   "coins": 0
+  },
+  "6,8": {
+   "kind": "barrel",
+   "open": true,
+   "coins": 0
+  },
+  "7,8": {
+   "kind": "grass",
+   "open": false,
+   "coins": 0
+  },
+  "8,8": {
+   "kind": "rum2",
+   "open": false,
+   "coins": 0
+  },
+  "9,8": {
+   "kind": "plane",
+   "open": false,
+   "coins": 0
+  },
+  "10,8": {
+   "kind": "fort",
+   "open": false,
+   "coins": 0
+  },
+  "11,8": {
+   "kind": "cave",
+   "open": false,
+   "coins": 0
+  },
+  "1,9": {
+   "kind": "arrow",
+   "open": false,
+   "coins": 0,
+   "arrow": "arrow4d",
+   "rot": 3,
+   "dirs": [
+    [
+     -1,
+     -1
+    ],
+    [
+     1,
+     -1
+    ],
+    [
+     1,
+     1
+    ],
+    [
+     -1,
+     1
+    ]
+   ]
+  },
+  "2,9": {
+   "kind": "horse",
+   "open": false,
+   "coins": 0
+  },
+  "3,9": {
+   "kind": "empty",
+   "open": false,
+   "coins": 0
+  },
+  "4,9": {
+   "kind": "empty",
+   "open": false,
+   "coins": 0
+  },
+  "5,9": {
+   "kind": "empty",
+   "open": true,
+   "coins": 0
+  },
+  "6,9": {
+   "kind": "empty",
+   "open": false,
+   "coins": 0
+  },
+  "7,9": {
+   "kind": "empty",
+   "open": true,
+   "coins": 0
+  },
+  "8,9": {
+   "kind": "empty",
+   "open": true,
+   "coins": 0
+  },
+  "9,9": {
+   "kind": "galleon",
+   "open": false,
+   "coins": 0
+  },
+  "10,9": {
+   "kind": "arrow",
+   "open": false,
+   "coins": 0,
+   "arrow": "arrow4",
+   "rot": 3,
+   "dirs": [
+    [
+     -1,
+     0
+    ],
+    [
+     0,
+     -1
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     0,
+     1
+    ]
+   ]
+  },
+  "11,9": {
+   "kind": "empty",
+   "open": false,
+   "coins": 0
+  },
+  "1,10": {
+   "kind": "horse",
+   "open": false,
+   "coins": 0
+  },
+  "2,10": {
+   "kind": "arrow",
+   "open": false,
+   "coins": 0,
+   "arrow": "arrow2",
+   "rot": 1,
+   "dirs": [
+    [
+     1,
+     0
+    ],
+    [
+     -1,
+     0
+    ]
+   ]
+  },
+  "3,10": {
+   "kind": "arrow",
+   "open": false,
+   "coins": 0,
+   "arrow": "arrow2d",
+   "rot": 3,
+   "dirs": [
+    [
+     -1,
+     -1
+    ],
+    [
+     1,
+     1
+    ]
+   ]
+  },
+  "4,10": {
+   "kind": "chest2",
+   "open": false,
+   "coins": 0
+  },
+  "5,10": {
+   "kind": "arrow",
+   "open": false,
+   "coins": 0,
+   "arrow": "arrow4d",
+   "rot": 3,
+   "dirs": [
+    [
+     -1,
+     -1
+    ],
+    [
+     1,
+     -1
+    ],
+    [
+     1,
+     1
+    ],
+    [
+     -1,
+     1
+    ]
+   ]
+  },
+  "6,10": {
+   "kind": "empty",
+   "open": false,
+   "coins": 0
+  },
+  "7,10": {
+   "kind": "arrow",
+   "open": false,
+   "coins": 0,
+   "arrow": "arrow4",
+   "rot": 0,
+   "dirs": [
+    [
+     0,
+     -1
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     -1,
+     0
+    ]
+   ]
+  },
+  "8,10": {
+   "kind": "friday",
+   "open": false,
+   "coins": 0
+  },
+  "9,10": {
+   "kind": "chest3",
+   "open": false,
+   "coins": 0
+  },
+  "10,10": {
+   "kind": "chest1",
+   "open": false,
+   "coins": 0
+  },
+  "11,10": {
+   "kind": "spin3",
+   "open": false,
+   "coins": 0
+  },
+  "2,11": {
+   "kind": "cave",
+   "open": false,
+   "coins": 0
+  },
+  "3,11": {
+   "kind": "arrow",
+   "open": false,
+   "coins": 0,
+   "arrow": "arrow1d",
+   "rot": 1,
+   "dirs": [
+    [
+     1,
+     1
+    ]
+   ]
+  },
+  "4,11": {
+   "kind": "missionary",
+   "open": false,
+   "coins": 0
+  },
+  "5,11": {
+   "kind": "ice",
+   "open": false,
+   "coins": 0
+  },
+  "6,11": {
+   "kind": "chest1",
+   "open": false,
+   "coins": 0
+  },
+  "7,11": {
+   "kind": "spin2",
+   "open": false,
+   "coins": 0
+  },
+  "8,11": {
+   "kind": "fort",
+   "open": false,
+   "coins": 0
+  },
+  "9,11": {
+   "kind": "barrel",
+   "open": false,
+   "coins": 0
+  },
+  "10,11": {
+   "kind": "empty",
+   "open": false,
+   "coins": 0
+  }
+ },
+ "ships": [
+  {
+   "x": 6,
+   "y": 12
+  },
+  {
+   "x": 0,
+   "y": 6
+  },
+  {
+   "x": 6,
+   "y": 0
+  },
+  {
+   "x": 12,
+   "y": 6
+  }
+ ],
+ "pirates": [
+  {
+   "id": 0,
+   "team": 0,
+   "x": 6,
+   "y": 8,
+   "alive": true,
+   "spin": 0,
+   "trapped": false,
+   "drunkUntil": 3
+  },
+  {
+   "id": 1,
+   "team": 0,
+   "x": 5,
+   "y": 9,
+   "alive": true,
+   "spin": 0,
+   "trapped": false,
+   "drunkUntil": 0
+  },
+  {
+   "id": 2,
+   "team": 0,
+   "x": 6,
+   "y": 12,
+   "alive": true,
+   "spin": 0,
+   "trapped": false,
+   "drunkUntil": 0
+  },
+  {
+   "id": 3,
+   "team": 2,
+   "x": 6,
+   "y": 0,
+   "alive": true,
+   "spin": 0,
+   "trapped": false,
+   "drunkUntil": 0
+  },
+  {
+   "id": 4,
+   "team": 2,
+   "x": 6,
+   "y": 0,
+   "alive": true,
+   "spin": 0,
+   "trapped": false,
+   "drunkUntil": 0
+  },
+  {
+   "id": 5,
+   "team": 2,
+   "x": 6,
+   "y": 0,
+   "alive": true,
+   "spin": 0,
+   "trapped": false,
+   "drunkUntil": 0
+  }
+ ],
+ "score": [
+  0,
+  0,
+  0,
+  0
+ ],
+ "rum": [
+  0,
+  0,
+  0,
+  0
+ ],
+ "lost": 0,
+ "over": false,
+ "log": []
+}

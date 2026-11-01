@@ -348,10 +348,10 @@ test('v0.5.8: позиция positions/v058-rum.json — пират заходи
     if (s.current === 0) { skipped++; assert.equal(V.drunkNotice(s, 6, 8), 'Пират пьян и пропускает ход'); assert.ok(!G.legalMoves(s).some(m => m.pid === id), 'пьяный не ходит'); }
     s = G.applyMove(s, G.legalMoves(s).find(m => m.pid !== id && !(m.x === 6 && m.y === 8)));
   }
-  assert.ok(skipped >= 1); assert.equal(V.isDrunk(s, p()), false, 'протрезвел');
+  assert.equal(skipped, 1, 'бочонок — пропуск ровно одного хода (jackal.su)'); assert.equal(V.isDrunk(s, p()), false, 'протрезвел');
   assert.equal(V.drunkNotice(s, 6, 8), null);
   while (s.current !== 0) s = G.applyMove(s, G.legalMoves(s)[0]);
-  assert.ok(G.legalMoves(s).some(m => m.pid === id), 'снова ходит');
+  assert.ok(G.legalMoves(s).some(m => m.pid === id), 'снова ходит'); assert.equal(s.turn + 1, 5, 'на ходу №5');
 });
 
 test('v0.5.9: «комнаты нет» — без плашки связи, онлайн-окна и переподключения; заметка убирается из DOM', () => {
@@ -361,4 +361,47 @@ test('v0.5.9: «комнаты нет» — без плашки связи, он
   assert.match(fn, /\$\('#banner'\); b\.hidden = true; b\.innerHTML = ''/); assert.match(fn, /\$\('#online'\)\.close\(\)/); assert.match(fn, /showMenu\(\)/);
   assert.match(ui, /pointerdown[^\n]*removeItem\(V\.NOTE_KEY\)[^\n]*textContent = ''/);
   const net = fs.readFileSync(new URL('../src/net.js', import.meta.url), 'utf8'); assert.match(net, /!stopped && open\(\)/, 'после stop() переподключений нет');
+});
+
+test('v0.5.9: бочонок рома — пропуск ровно одного своего хода и в режиме с 4 командами', () => {
+  for (const mode of ['1v1', '2p', '4p']) {
+    const s = G.newGame({ mode, seed: 7 }), p = s.pirates[0], n = G.activeTeams(mode).length;
+    s.tiles['6,10'] = { kind: 'barrel', open: true, coins: 0 }; p.x = 6; p.y = 11; s.tiles['6,11'] = { kind: 'empty', open: true, coins: 0 };
+    const t = G.applyMove(s, G.legalMoves(s).find(m => m.pid === p.id && m.x === 6 && m.y === 10));
+    const q = t.pirates[p.id];
+    assert.equal(V.isDrunk({ ...t, turn: n }, q), true, mode + ': следующий свой ход пропускает');
+    assert.equal(V.isDrunk({ ...t, turn: 2 * n }, q), false, mode + ': через один свой ход трезв');
+  }
+});
+
+test('v0.5.9: значок пьяного крупнее — ~40% клетки на поле, 47% фишки в панели, вынесен как номер', () => {
+  const css = fs.readFileSync(new URL('../style.css', import.meta.url), 'utf8');
+  assert.match(css, /\.cell \.pirate img\.drunk\{position:absolute;right:-14%;bottom:-14%;width:89%;height:89%/);
+  assert.match(css, /\.cell \.pirate \.num\{position:absolute;right:-14%;top:-14%/, 'номер вынесен на столько же');
+  assert.match(css, /\.crew \.tok img\.drunk\{position:absolute;right:-3px;bottom:-3px;width:47%;height:47%/);
+});
+
+test('v0.5.10: позиция v0510-rum-both — оба белых пьяны на одной клетке; ход белых №3 — «Пираты пьяны…»', () => {
+  let s = G.loadState(fs.readFileSync(new URL('../positions/v0510-rum-both.json', import.meta.url), 'utf8'));
+  assert.equal(s.mode, '1v1'); assert.equal(s.current, 0); assert.equal(G.tileAt(s, 6, 8).kind, 'barrel');
+  const [a, b] = [0, 1].map(i => s.pirates.find(p => p.team === 0 && p.x === [6, 5][i] && p.y === [8, 9][i]));
+  assert.ok(a && b); assert.equal(V.isDrunk(s, a), true);
+  s = G.applyMove(s, G.legalMoves(s).find(m => m.pid === b.id && m.x === 6 && m.y === 8));
+  s = G.applyMove(s, G.legalMoves(s)[0]); // чёрные
+  assert.equal(s.current, 0); assert.equal(s.turn, 2);
+  assert.equal(V.drunkNotice(s, 6, 8), 'Пираты пьяны и пропускают ход');
+  assert.ok(!G.legalMoves(s).some(m => m.pid === a.id || m.pid === b.id));
+});
+
+test('v0.5.10: корабль чёрных у верхнего края — плашка в пределах поля; чужие пираты — подсказка «Сейчас ход»', () => {
+  let s = G.loadState(fs.readFileSync(new URL('../positions/v058-rum.json', import.meta.url), 'utf8'));
+  assert.equal(V.turnNotice(s, 6, 0), 'Сейчас ход: Белые');
+  assert.equal(V.turnNotice(s, 5, 9), null, 'свои');
+  s = G.applyMove(s, G.legalMoves(s).find(m => m.pid === 1 && m.x === 8 && m.y === 9));
+  const mine = s.pirates.filter(p => p.alive && p.x === 6 && p.y === 0 && p.team === s.current && G.pirateMoves(s, p).length);
+  assert.equal(mine.length, 3, 'на корабле чёрных три пирата с ходами');
+  const pl = V.platePlacement({ x: 6, n: 3 }); assert.ok(pl.start >= 0 && pl.start + pl.span <= G.N);
+  const ui = fs.readFileSync(new URL('../src/ui.js', import.meta.url), 'utf8');
+  assert.match(ui, /d\.style\.gridRow = String\(plate\.y \+ 1\)/, 'плашка в той же строке, что и клетка (строка 1 у верхнего края)');
+  assert.match(ui, /V\.drunkNotice\(state, x, y\) \|\| V\.turnNotice\(state, x, y\)/);
 });
