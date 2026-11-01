@@ -374,11 +374,11 @@ test('v0.5.9: бочонок рома — пропуск ровно одного
   }
 });
 
-test('v0.5.9: значок пьяного крупнее — ~40% клетки на поле, 47% фишки в панели, вынесен как номер', () => {
+test('v0.5.9: значок пьяного крупнее — 40% рамки фишки на поле и в панели, вынесен как номер', () => {
   const css = fs.readFileSync(new URL('../style.css', import.meta.url), 'utf8');
-  assert.match(css, /\.cell \.pirate img\.drunk\{position:absolute;right:-14%;bottom:-14%;width:89%;height:89%/);
+  assert.match(css, /\.cell \.pirate img\.drunk\{position:absolute;right:-14%;bottom:-14%;width:40%;height:40%/);
   assert.match(css, /\.cell \.pirate \.num\{position:absolute;right:-14%;top:-14%/, 'номер вынесен на столько же');
-  assert.match(css, /\.crew \.tok img\.drunk\{position:absolute;right:-3px;bottom:-3px;width:47%;height:47%/);
+  assert.match(css, /\.crew \.tok img\.drunk\{position:absolute;right:-3px;bottom:-3px;width:calc\(\(100% \+ 6px\) \* \.4\)/);
 });
 
 test('v0.5.10: позиция v0510-rum-both — оба белых пьяны на одной клетке; ход белых №3 — «Пираты пьяны…»', () => {

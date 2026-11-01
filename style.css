@@ -91,6 +91,6 @@ nav button:disabled{opacity:.45;cursor:not-allowed}nav button[aria-pressed=true]
 #board{overflow:hidden;contain:layout}
 
 /* v0.5.8: значок «пьян» — справа снизу, напротив номера */
-/* значок пьяного: ~40% клетки (фишка на поле — 45% клетки, значит 89% её рамки), вынесен за правый нижний край на столько же, на сколько номер — за правый верхний */
-.cell .pirate img.drunk{position:absolute;right:-14%;bottom:-14%;width:89%;height:89%;z-index:3;filter:drop-shadow(0 0 1px #000)}
-.crew .tok img.drunk{position:absolute;right:-3px;bottom:-3px;width:47%;height:47%;filter:drop-shadow(0 0 1px #000)}
+/* значок пьяного: 40% рамки фишки, вынесен за правый нижний край на столько же, на сколько номер — за правый верхний */
+.cell .pirate img.drunk{position:absolute;right:-14%;bottom:-14%;width:40%;height:40%;z-index:3;filter:drop-shadow(0 0 1px #000)}
+.crew .tok img.drunk{position:absolute;right:-3px;bottom:-3px;width:calc((100% + 6px) * .4);height:calc((100% + 6px) * .4);filter:drop-shadow(0 0 1px #000)}
