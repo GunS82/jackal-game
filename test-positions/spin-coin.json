@@ -1,0 +1,4 @@
+{ "mode": "2p", "current": 0, "defaultTile": { "kind": "empty", "open": true },
+  "_note": "Белый пират на (6,10) с монетой на клетке, ходит на вертушку spin3 (6,9) с монетой. Ожидание: монета едет вместе с ним все 3 шага и выходит с ним.",
+  "tiles": { "6,10": { "kind": "empty", "open": true, "coins": 1 }, "6,9": { "kind": "spin3", "open": true } },
+  "pirates": [ { "team": 0, "x": 6, "y": 10 } ] }

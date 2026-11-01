@@ -5,11 +5,13 @@
 
 ```json
 {
-  "mode": "2p",            // "2p" | "2v2" | "4p" (союзники в 2p/2v2: команды 0+2 и 1+3)
+  "version": 2, "seed": 12345,   // версия формата; seed раздачи (информативно)
+  "mode": "2p",            // "2p" (1 на 1, по 2 команды) | "1v1" (только команды 0 и 2) | "2v2" | "4p"
   "current": 0,            // чей ход, 0..3
   "turn": 0, "score": [0,0,0,0], "rum": [0,0,0,0], "lost": 0,   // необязательно
   "defaultTile": { "kind": "empty", "open": true },  // чем заполнить неуказанные клетки
   "tiles": {
+    "8,8":  { "kind": "arrow3", "rot": 1 },               // rot — поворот на 90° по часовой (вместо dirs)
     "6,10": { "kind": "ice", "open": true },
     "5,10": { "kind": "chest2", "open": true, "coins": 2 },
     "4,9":  { "kind": "arrow1", "dirs": [[1,1]] },      // dirs: направления [dx,dy], -1..1
@@ -25,6 +27,7 @@
   ]
 }
 ```
+- `moves` — журнал ходов `[{n, team, type, pid, x, y, via, coin}]`, `log` — текстовый журнал, `pending` — незавершённый ход по стрелке/коню `{pid, coin, origin, steps}` (обычно null).
 - `kind`: empty, arrow1, arrow1d, arrow2, arrow2d, arrow3, arrow4, arrow4d (или `arrow` + обязательный `dirs`), horse, spin2..spin5, ice, trap, croc, ogre, fort, abor, chest1..chest5, plane, balloon, cannon, barrel, rum1..rum3.
 - `open` по умолчанию `true`; `coins` — монеты, лежащие на клетке (у закрытого сундука монеты появятся при открытии).
 - Пиратов не больше 3 на команду; недостающие считаются погибшими. `spin` — текущий шаг на вертушке.

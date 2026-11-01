@@ -21,7 +21,10 @@ export const DECK = {
   arrow1: 3, arrow1d: 3, arrow2: 3, arrow2d: 3, arrow3: 3, arrow4: 3, arrow4d: 3,
 };
 export const KINDS = new Set([...Object.keys(DECK), 'arrow']);
-export const MODES = { '2p': 'Два игрока (по 2 команды)', '2v2': '4 игрока, 2 на 2', '4p': '4 игрока, каждый за себя' };
+export const MODES = { '2p': '1 на 1, классика (по 2 команды)', '1v1': '1 на 1, по одному кораблю', '2v2': '4 игрока, 2 на 2', '4p': '4 игрока, каждый за себя' };
+export const UI_MODES = ['2p', '1v1'];
+export const FORMAT_VERSION = 2;
+export const activeTeams = mode => mode === '1v1' ? [0, 2] : [0, 1, 2, 3];
 
 export function rng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 export const isIsland = (x, y) => x >= 1 && x <= 11 && y >= 1 && y <= 11 && !((x === 1 || x === 11) && (y === 1 || y === 11));
@@ -29,12 +32,17 @@ export const inGrid = (x, y) => x >= 0 && x < N && y >= 0 && y < N;
 export const isSea = (x, y) => inGrid(x, y) && !isIsland(x, y);
 const key = (x, y) => x + ',' + y;
 const rot = ([dx, dy]) => [-dy, dx];
+const turn = (ds, k) => { for (let i = 0; i < ((k % 4) + 4) % 4; i++) ds = ds.map(rot); return ds; };
+// Поворот (в четвертях по часовой) для отрисовки стрелки/пушки, если dirs совпадают с базовым видом.
+export function tileRotation(t) { const base = t.kind === 'cannon' ? [[0, -1]] : ARROWS[t.arrow]; if (!base) return null; const sig = d => d.map(v => v.join()).sort().join(';'); for (let k = 0; k < 4; k++) if (sig(turn(base, k)) === sig(t.dirs)) return k; return null; }
 const KNIGHT = [[1, 2], [2, 1], [-1, 2], [-2, 1], [1, -2], [2, -1], [-1, -2], [-2, -1]];
 const NB = [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]];
 
-export function playerOf(state, team) { return state.mode === '2p' ? team % 2 : team; }
-export function allied(state, a, b) { return a === b || (state.mode !== '4p' && a % 2 === b % 2); }
-export function sideOf(state, team) { return state.mode === '4p' ? team : team % 2; }
+export function playerOf(state, team) { return state.mode === '2p' ? team % 2 : state.mode === '1v1' ? team / 2 : team; }
+export function playersCount(s) { return s.mode === '2p' || s.mode === '1v1' ? 2 : 4; }
+export function teamsOfPlayer(s, pl) { return activeTeams(s.mode).filter(t => playerOf(s, t) === pl); }
+export function allied(state, a, b) { return a === b || (state.mode !== '4p' && state.mode !== '1v1' && a % 2 === b % 2); }
+export function sideOf(state, team) { return state.mode === '4p' ? team : state.mode === '1v1' ? team / 2 : team % 2; }
 
 export function newGame({ mode = '2p', seed = Date.now() } = {}) {
   const r = rng(seed);
@@ -44,17 +52,18 @@ export function newGame({ mode = '2p', seed = Date.now() } = {}) {
   const tiles = {};
   for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (isIsland(x, y)) {
     let kind = deck.pop(); const t = { kind, open: false, coins: 0 };
-    if (ARROWS[kind]) { let d = ARROWS[kind]; const k = Math.floor(r() * 4); for (let i = 0; i < k; i++) d = d.map(rot); t.kind = 'arrow'; t.arrow = kind; t.dirs = d; }
-    if (kind === 'cannon') { let d = [0, -1]; const k = Math.floor(r() * 4); for (let i = 0; i < k; i++) d = rot(d); t.dirs = [d]; }
+    if (ARROWS[kind]) { let d = ARROWS[kind]; const k = Math.floor(r() * 4); for (let i = 0; i < k; i++) d = d.map(rot); t.kind = 'arrow'; t.arrow = kind; t.rot = k; t.dirs = d; }
+    if (kind === 'cannon') { let d = [0, -1]; const k = Math.floor(r() * 4); for (let i = 0; i < k; i++) d = rot(d); t.dirs = [d]; t.rot = k; }
     tiles[key(x, y)] = t;
   }
   const pirates = [];
-  TEAMS.forEach((T, team) => { for (let i = 0; i < 3; i++) pirates.push({ id: pirates.length, team, x: T.ship[0], y: T.ship[1], alive: true, spin: 0, trapped: false, drunkUntil: 0 }); });
-  return { version: 1, mode, turn: 0, current: 0, tiles, ships: TEAMS.map(T => ({ x: T.ship[0], y: T.ship[1] })), pirates, score: [0, 0, 0, 0], rum: [0, 0, 0, 0], lost: 0, over: false, log: [] };
+  TEAMS.forEach((T, team) => { if (activeTeams(mode).includes(team)) for (let i = 0; i < 3; i++) pirates.push({ id: pirates.length, team, x: T.ship[0], y: T.ship[1], alive: true, spin: 0, trapped: false, drunkUntil: 0 }); });
+  return { version: FORMAT_VERSION, seed, mode, turn: 0, current: 0, pending: null, moves: [], tiles, ships: TEAMS.map(T => ({ x: T.ship[0], y: T.ship[1] })), pirates, score: [0, 0, 0, 0], rum: [0, 0, 0, 0], lost: 0, over: false, log: [] };
 }
 
 export const tileAt = (s, x, y) => s.tiles[key(x, y)];
-export const shipAt = (s, x, y) => s.ships.findIndex(sh => sh.x === x && sh.y === y);
+export const shipAt = (s, x, y) => s.ships.findIndex((sh, i) => sh.x === x && sh.y === y && activeTeams(s.mode).includes(i));
+export const cloneState = s => JSON.parse(JSON.stringify(s));
 export const onShip = (s, p) => p.alive && s.ships[p.team].x === p.x && s.ships[p.team].y === p.y;
 const here = (s, x, y) => s.pirates.filter(p => p.alive && p.x === x && p.y === y);
 
@@ -69,9 +78,10 @@ function landTargets(s, p) {
 
 export function pirateMoves(s, p) {
   if (!p.alive || p.team !== s.current || s.over) return [];
-  if (s.turn < p.drunkUntil) return [];
+  if (s.pending && s.pending.pid !== p.id) return [];
+  if (!s.pending && s.turn < p.drunkUntil) return [];
   let rum = false;
-  if (p.trapped) { if (s.rum[p.team] > 0) rum = true; else return []; }
+  if (p.trapped && !s.pending) { if (s.rum[p.team] > 0) rum = true; else return []; }
   const out = [];
   const add = (x, y, via, coin) => out.push({ type: 'move', pid: p.id, x, y, via, coin, ...(rum ? { rum: true } : {}) });
   if (onShip(s, p)) { const f = TEAMS[p.team].front; add(p.x + f[0], p.y + f[1], 'land', false); return out; }
@@ -82,7 +92,7 @@ export function pirateMoves(s, p) {
   const cell = tileAt(s, p.x, p.y);
   const forced = cell.kind === 'arrow' || cell.kind === 'horse';
   for (const [x, y, via] of landTargets(s, p)) {
-    for (const coin of cell.coins > 0 && via !== 'spin' ? [false, true] : [false]) {
+    for (const coin of s.pending ? [s.pending.coin] : cell.coins > 0 && via !== 'spin' ? [false, true] : [false]) {
       if (isSea(x, y)) {
         const sh = shipAt(s, x, y);
         if (sh >= 0) { if (!allied(s, sh, p.team)) continue; }
@@ -94,7 +104,7 @@ export function pirateMoves(s, p) {
       const enemies = here(s, x, y).filter(q => !allied(s, q.team, p.team));
       if (coin && (!t.open || t.kind === 'fort' || t.kind === 'abor')) continue;
       if (enemies.length && t.open && (t.kind === 'fort' || t.kind === 'abor')) continue;
-      if (coin && enemies.length && !(t.open && SPIN[t.kind])) continue;
+      if (coin && enemies.length && !(t.open && SPIN[t.kind]) && !s.pending) continue;
       add(x, y, via, coin);
     }
   }
@@ -106,10 +116,11 @@ export function legalMoves(s) {
   const team = s.current, out = [];
   for (const p of s.pirates) if (p.team === team) out.push(...pirateMoves(s, p));
   const sh = s.ships[team], T = TEAMS[team];
-  if (here(s, sh.x, sh.y).some(p => p.team === team)) for (const d of [-1, 1]) {
+  if (!s.pending && here(s, sh.x, sh.y).some(p => p.team === team)) for (const d of [-1, 1]) {
     const x = sh.x + (T.axis === 'x' ? d : 0), y = sh.y + (T.axis === 'y' ? d : 0);
     const v = T.axis === 'x' ? x : y; if (v >= 2 && v <= 10) out.push({ type: 'ship', dir: d, x, y });
   }
+  if (s.pending) return out;
   const dead = s.pirates.filter(p => p.team === team && !p.alive);
   const alive = s.pirates.filter(p => p.team === team && p.alive);
   if (dead.length && alive.length < 3) { const healer = alive.find(p => isIsland(p.x, p.y) && tileAt(s, p.x, p.y).kind === 'abor'); if (healer) out.push({ type: 'revive', pid: dead[0].id, x: healer.x, y: healer.y }); }
@@ -129,7 +140,10 @@ function deliver(s, team, coin) { if (coin) { s.score[team]++; msg(s, `💰 ${TE
 
 // Перемещение пирата с цепочкой эффектов клеток.
 function walk(s, p, x, y, via, coin) {
-  const origin = [p.x, p.y];
+  const origin = s.pending ? s.pending.origin : [p.x, p.y];
+  const chain = s.pending ? s.pending.steps : 0;
+  const origSpin = p.spin; p.spin = 0;
+  s.pending = null;
   let from = [p.x, p.y], delta = [x - p.x, y - p.y];
   for (let step = 0; step < 60; step++) {
     if (!inGrid(x, y)) { x = Math.max(0, Math.min(N - 1, x)); y = Math.max(0, Math.min(N - 1, y)); }
@@ -147,14 +161,19 @@ function walk(s, p, x, y, via, coin) {
     if (t.kind === 'ice') { next(x + delta[0], y + delta[1]); continue; }
     if (t.kind === 'cannon') { const [dx, dy] = t.dirs[0]; let nx = x, ny = y; do { nx += dx; ny += dy; } while (isIsland(nx, ny)); next(nx, ny); continue; }
     if (t.kind === 'croc') {
-      [x, y] = origin; p.x = x; p.y = y; msg(s, `🐊 ${pname(p)} вернулся назад`);
+      [x, y] = origin; p.x = x; p.y = y; if (isIsland(x, y) && SPIN[tileAt(s, x, y).kind]) p.spin = origSpin; msg(s, `🐊 ${pname(p)} вернулся назад`);
       if (isIsland(x, y)) { if (coin) tileAt(s, x, y).coins++; } else if (coin) { const sh = shipAt(s, x, y); if (sh >= 0) deliver(s, sh, true); else s.lost++; }
       return;
     }
     if (t.kind === 'ogre') { if (coin) t.coins++; die(s, p, 'съеден людоедом'); return; }
+    if ((t.kind === 'arrow' && t.dirs.length > 1) || t.kind === 'horse') {
+      p.x = x; p.y = y; p.spin = 0;
+      if (chain > 30) { if (coin) s.lost++; die(s, p, 'попал в цикл'); return; }
+      s.pending = { pid: p.id, coin, origin, steps: chain + 1 }; return; // выбор направления в этот же ход
+    }
     if (t.kind === 'balloon') { toShip(s, p); deliver(s, p.team, coin); msg(s, `🎈 ${pname(p)} улетел на корабль`); return; }
     // остановка на клетке
-    const spinStep = via === 'spin' ? p.spin + 1 : (SPIN[t.kind] ? 1 : 0);
+    const spinStep = via === 'spin' ? origSpin + 1 : (SPIN[t.kind] ? 1 : 0);
     p.x = x; p.y = y; p.spin = spinStep;
     for (const q of here(s, x, y)) if (q !== p && !allied(s, q.team, p.team) && (!SPIN[t.kind] || q.spin === spinStep)) { toShip(s, q); msg(s, `⚔ ${pname(p)} отправил ${pname(q)} на корабль`); }
     const friends = here(s, x, y).filter(q => q !== p && allied(s, q.team, p.team));
@@ -168,8 +187,11 @@ function walk(s, p, x, y, via, coin) {
   die(s, p, 'попал в цикл');
 }
 
-export function applyMove(s, m) {
-  if (s.over) throw new Error('Игра окончена');
+// Чистая функция: возвращает новое состояние, исходное не меняется.
+export function applyMove(s0, m, { asPlayer = null } = {}) {
+  if (s0.over) throw new Error('Игра окончена');
+  if (asPlayer != null && playerOf(s0, s0.current) !== asPlayer) throw new Error('Сейчас ход другого игрока');
+  const s = cloneState(s0);
   const ok = legalMoves(s).some(l => JSON.stringify(l) === JSON.stringify(m));
   if (!ok) throw new Error('Недопустимый ход');
   const team = s.current;
@@ -183,21 +205,30 @@ export function applyMove(s, m) {
   } else {
     const p = s.pirates[m.pid];
     if (m.rum) { s.rum[team]--; p.trapped = false; msg(s, `🍾 ${pname(p)} выпил ром и выбрался`); }
-    if (isIsland(p.x, p.y)) { const t = tileAt(s, p.x, p.y); if (t.kind === 'plane' && !t.used && m.via === 'plane') t.used = true; if (m.coin) t.coins--; }
+    const cont = !!s.pending;
+    if (isIsland(p.x, p.y) && !cont) { const t = tileAt(s, p.x, p.y); if (t.kind === 'plane' && !t.used && m.via === 'plane') t.used = true; if (m.coin) t.coins--; }
     if (m.via === 'spin') { const t = tileAt(s, p.x, p.y); walk(s, p, p.x, p.y, 'spin', false); void t; }
-    else { p.spin = 0; walk(s, p, m.x, m.y, m.via, m.coin); }
+    else walk(s, p, m.x, m.y, m.via, m.coin);
   }
+  s.moves.push({ n: s.moves.length + 1, team, ...m });
   endTurn(s);
   return s;
 }
 
-export function coinsLeft(s) { let n = 0; for (const t of Object.values(s.tiles)) n += t.coins + (!t.open && CHEST[t.kind] ? CHEST[t.kind] : 0); return n; }
+export function coinsLeft(s) { let n = s.pending?.coin ? 1 : 0; for (const t of Object.values(s.tiles)) n += t.coins + (!t.open && CHEST[t.kind] ? CHEST[t.kind] : 0); return n; }
 
 function endTurn(s) {
+  if (s.pending) {
+    const p = s.pirates[s.pending.pid];
+    if (!legalMoves(s).length && s.pending.coin) { s.pending.coin = false; tileAt(s, p.x, p.y).coins++; }
+    if (legalMoves(s).length) return; // тот же игрок доигрывает ход
+    s.pending = null; die(s, p, 'некуда идти');
+  }
   s.turn++;
   if (coinsLeft(s) === 0 && s.score.some(v => v > 0) + s.lost > 0) { s.over = true; return; }
+  const act = activeTeams(s.mode);
   for (let i = 0; i < 4; i++) {
-    s.current = (s.current + 1) % 4;
+    s.current = act[(act.indexOf(s.current) + 1) % act.length];
     if (legalMoves(s).length) return;
     s.turn++;
   }
@@ -205,13 +236,13 @@ function endTurn(s) {
 }
 
 export function sideScores(s) {
-  const out = {}; s.score.forEach((v, t) => { const k = sideOf(s, t); out[k] = (out[k] || 0) + v; }); return out;
+  const out = {}; s.score.forEach((v, t) => { if (!activeTeams(s.mode).includes(t)) return; const k = sideOf(s, t); out[k] = (out[k] || 0) + v; }); return out;
 }
 export function winner(s) {
   if (!s.over) return null; const sc = sideScores(s); const best = Math.max(...Object.values(sc));
   return Object.keys(sc).filter(k => sc[k] === best).map(Number);
 }
-export function sideName(s, side) { return s.mode === '4p' ? TEAMS[side].name : side === 0 ? (s.mode === '2p' ? 'Игрок 1 (Белые+Чёрные)' : 'Белые+Чёрные') : (s.mode === '2p' ? 'Игрок 2 (Жёлтые+Красные)' : 'Жёлтые+Красные'); }
+export function sideName(s, side) { return s.mode === '4p' ? TEAMS[side].name : s.mode === '1v1' ? `Игрок ${side + 1} (${TEAMS[side * 2].name})` : side === 0 ? (s.mode === '2p' ? 'Игрок 1 (Белые+Чёрные)' : 'Белые+Чёрные') : (s.mode === '2p' ? 'Игрок 2 (Жёлтые+Красные)' : 'Жёлтые+Красные'); }
 
 // ---------- сохранение / загрузка ----------
 export function serialize(s) { return JSON.stringify(s, null, 1); }
@@ -222,7 +253,9 @@ export function loadState(text) {
   const err = m => { throw new Error('Ошибка в позиции: ' + m); };
   if (!raw || typeof raw !== 'object') err('ожидался объект');
   const mode = raw.mode ?? '2p'; if (!MODES[mode]) err(`mode должен быть одним из ${Object.keys(MODES).join(', ')}`);
-  const s = { version: 1, mode, turn: raw.turn ?? 0, current: raw.current ?? 0, tiles: {}, ships: [], pirates: [], score: raw.score ?? [0, 0, 0, 0], rum: raw.rum ?? [0, 0, 0, 0], lost: raw.lost ?? 0, over: !!raw.over, log: [] };
+  if (raw.version != null && raw.version > FORMAT_VERSION) err(`версия формата ${raw.version} новее поддерживаемой (${FORMAT_VERSION})`);
+  const s = { version: FORMAT_VERSION, seed: raw.seed ?? null, pending: raw.pending ?? null, moves: Array.isArray(raw.moves) ? raw.moves : [], log: Array.isArray(raw.log) ? raw.log : [], mode, turn: raw.turn ?? 0, current: raw.current ?? 0, tiles: {}, ships: [], pirates: [], score: raw.score ?? [0, 0, 0, 0], rum: raw.rum ?? [0, 0, 0, 0], lost: raw.lost ?? 0, over: !!raw.over };
+  if (!activeTeams(mode).includes(s.current)) err('current: эта команда не участвует в режиме');
   if (![0, 1, 2, 3].includes(s.current)) err('current должен быть 0..3');
   for (const f of ['score', 'rum']) if (!Array.isArray(s[f]) || s[f].length !== 4 || s[f].some(v => !Number.isInteger(v) || v < 0)) err(`${f} — массив из 4 неотрицательных целых`);
   const def = raw.defaultTile ?? { kind: 'empty', open: true };
@@ -235,9 +268,10 @@ export function loadState(text) {
     if (!KINDS.has(kind)) err(`клетка ${k}: неизвестный kind "${kind}"`);
     const tile = { kind, open: t.open ?? true, coins: t.coins ?? 0 };
     if (!Number.isInteger(tile.coins) || tile.coins < 0) err(`клетка ${k}: coins — неотрицательное целое`);
-    if (ARROWS[kind]) { tile.kind = 'arrow'; tile.arrow = kind; tile.dirs = t.dirs ?? ARROWS[kind]; }
-    if (kind === 'arrow') { tile.arrow = t.arrow ?? 'custom'; tile.dirs = t.dirs; }
-    if (kind === 'cannon') tile.dirs = t.dirs ?? [[0, -1]];
+    if (ARROWS[kind]) { tile.kind = 'arrow'; tile.arrow = kind; tile.rot = t.rot ?? 0; tile.dirs = t.dirs ?? turn(ARROWS[kind], tile.rot); }
+    if (kind === 'arrow') { tile.arrow = t.arrow ?? 'custom'; tile.rot = t.rot ?? 0; tile.dirs = t.dirs ?? (ARROWS[tile.arrow] && turn(ARROWS[tile.arrow], tile.rot)); }
+    if (kind === 'cannon') tile.rot = t.rot ?? 0;
+    if (kind === 'cannon') tile.dirs = t.dirs ?? turn([[0, -1]], tile.rot);
     if (tile.dirs && (!Array.isArray(tile.dirs) || !tile.dirs.length || tile.dirs.some(d => !Array.isArray(d) || d.length !== 2 || d.some(v => ![-1, 0, 1].includes(v)) || (d[0] === 0 && d[1] === 0)))) err(`клетка ${k}: dirs — массив направлений [dx,dy] из -1/0/1`);
     if (t.used) tile.used = true;
     s.tiles[k] = tile;
@@ -257,11 +291,12 @@ export function loadState(text) {
     const alive = p.alive ?? true;
     let x = p.x, y = p.y;
     if (p.onShip) { x = s.ships[p.team].x; y = s.ships[p.team].y; }
+    if (!activeTeams(mode).includes(p.team)) err(`пират #${i}: команда ${TEAMS[p.team].name} не участвует в режиме ${mode}`);
     if (alive && !(Number.isInteger(x) && Number.isInteger(y) && inGrid(x, y))) err(`пират #${i}: координаты x,y 0..12 (или onShip: true)`);
     if (alive && isSea(x, y)) { const sh = shipAt(s, x, y); if (sh >= 0 && !allied(s, sh, p.team)) err(`пират #${i} стоит на вражеском корабле`); }
     s.pirates.push({ id: 0, team: p.team, x: alive ? x : null, y: alive ? y : null, alive, spin: p.spin ?? 0, trapped: !!p.trapped, drunkUntil: p.drunkUntil ?? 0 });
   });
-  for (let t = 0; t < 4; t++) while (count[t]++ < 3) s.pirates.push({ id: 0, team: t, x: null, y: null, alive: false, spin: 0, trapped: false, drunkUntil: 0 });
+  for (const t of activeTeams(mode)) while (count[t]++ < 3) s.pirates.push({ id: 0, team: t, x: null, y: null, alive: false, spin: 0, trapped: false, drunkUntil: 0 });
   s.pirates.sort((a, b) => a.team - b.team); s.pirates.forEach((p, i) => p.id = i);
   return s;
 }
