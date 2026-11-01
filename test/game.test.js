@@ -379,7 +379,7 @@ test('v0.5.12: значок пьяного того же размера, что 
   const rule = sel => { const m = [...css.matchAll(new RegExp(sel.replace(/[.]/g, '\\.') + '(?:,[^{]*)?\\{([^}]*)\\}', 'g'))].map(m => m[1]).join(';'); return k => (m.match(new RegExp('(?:^|;)' + k + ':([^;]+)', 'g')) || []).pop()?.split(':').slice(1).join(':'); };
   const num = rule('.cell .pirate .num'), dr = rule('.cell .pirate img.drunk');
   assert.equal(num('width'), 'var(--badge)'); assert.equal(dr('width'), num('width')); assert.equal(dr('height'), num('height'));
-  assert.match(css, /\.cell \.pirate\{--badge:58%\}/);
+  assert.match(css, /\.cell \.pirate\{--badge:max\(11px,58%\)\}/);
   assert.equal(dr('right'), num('right')); assert.equal(dr('bottom'), num('top'), 'вынос за край как у номера');
   const tb = rule('.crew .tok b'), td = rule('.crew .tok img.drunk');
   assert.equal(tb('min-width'), 'var(--tbadge)'); assert.equal(td('width'), 'var(--tbadge)'); assert.equal(td('height'), tb('height'));
@@ -435,4 +435,12 @@ test('v0.5.12: плашка на корабле — подсказка «выб�
   assert.equal(V.plateHint({ x: 6, y: 0, pids: [3, 4, 5] }, 4, true), null);
   assert.equal(V.plateHint({ x: 6, y: 0, pids: [3, 4, 5] }, null, false), null);
   assert.equal(V.plateHint(null, null, true), null);
+});
+
+test('v0.5.13: номер и значок — минимум 11px через --badge/--tbadge, белая обводка 1px, pointer-events:none', () => {
+  const css = fs.readFileSync(new URL('../style.css', import.meta.url), 'utf8');
+  assert.match(css, /\.cell \.pirate\{--badge:max\(11px,58%\)\}/);
+  assert.match(css, /\.crew \.tok\{--tbadge:max\(11px,/);
+  const m = css.match(/\.cell \.pirate \.num,\.cell \.pirate img\.drunk,\.crew \.tok b,\.crew \.tok img\.drunk\{([^}]*)\}/);
+  assert.ok(m); assert.match(m[1], /outline:1px solid #fff/); assert.match(m[1], /pointer-events:none/);
 });
