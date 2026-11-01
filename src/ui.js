@@ -35,7 +35,7 @@ function render() {
     const sh = G.shipAt(s, x, y);
     if (sh >= 0) { c.classList.add('ship'); c.style.setProperty('--team', G.TEAMS[sh].color); c.insertAdjacentHTML('afterbegin', pic(shipImg(sh), '⛵', 'tile')); }
     const ps = s.pirates.filter(p => p.alive && p.x === x && p.y === y);
-    if (ps.length) { const w = document.createElement('div'); w.className = 'pirates'; for (const p of ps) { const d = document.createElement('i'); d.className = 'pirate' + (p.id === sel ? ' sel' : '') + (p.trapped ? ' trapped' : ''); d.innerHTML = pic(pirateImg(p.team), '●', 'pi') + `<em>${p.id % 3 + 1}${p.spin ? '·' + p.spin : ''}</em>`; w.append(d); } c.append(w); }
+    if (ps.length) { const w = document.createElement('div'); w.className = 'pirates'; for (const p of ps) { const d = document.createElement('i'); d.className = 'pirate' + (p.id === sel ? ' sel' : '') + (p.trapped ? ' trapped' : ''); d.innerHTML = pic(pirateImg(p.team), '●', 'pi') + `<em>${p.id % 3 + 1}${p.spin ? '·' + p.spin : ''}${p.carry ? '$' : ''}</em>`; w.append(d); } c.append(w); }
     if (targets.some(m => m.x === x && m.y === y)) c.classList.add('target');
     c.onclick = () => click(x, y, targets);
     b.append(c);
@@ -47,7 +47,7 @@ function render() {
   const sc = G.sideScores(s);
   $('#score').innerHTML = Object.keys(sc).map(k => `${G.sideName(s, +k)}: <b>${sc[k]}</b>`).join(' · ') + ` · осталось ${G.coinsLeft(s)} · утонуло ${s.lost} · ром: ${G.activeTeams(s.mode).map(t => s.rum[t]).join('/')}`;
   const p = typeof sel === 'number' ? s.pirates[sel] : null;
-  const canCoin = p && !s.pending && G.tileAt(s, p.x, p.y)?.coins > 0 && moves.some(m => m.pid === sel && m.coin);
+  const canCoin = p && !s.pending && (G.tileAt(s, p.x, p.y)?.coins > 0 || p.carry) && moves.some(m => m.pid === sel && m.coin) && moves.some(m => m.pid === sel && !m.coin);
   $('#coinBtn').hidden = !canCoin; $('#coinBtn').textContent = withCoin ? '🪙 Несёт монету (снять)' : '🪙 Взять монету';
   $('#shipBtn').hidden = !moves.some(m => m.type === 'ship');
   $('#reviveBtn').hidden = !moves.some(m => m.type === 'revive');
@@ -62,7 +62,7 @@ function click(x, y, targets) {
   if (hit) { state = G.applyMove(state, hit); sel = null; withCoin = false; return render(); }
   if (!myTurn() || state.pending) return;
   const mine = state.pirates.filter(p => p.alive && p.x === x && p.y === y && p.team === state.current && G.pirateMoves(state, p).length);
-  if (mine.length) { const i = mine.findIndex(p => p.id === sel); sel = mine[(i + 1) % mine.length].id; withCoin = false; }
+  if (mine.length) { const i = mine.findIndex(p => p.id === sel); sel = mine[(i + 1) % mine.length].id; withCoin = !!state.pirates[sel].carry; }
   else sel = null;
   render();
 }

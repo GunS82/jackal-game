@@ -7,7 +7,7 @@ export const TEAMS = [
   { name: 'Красные', color: '#d22', ship: [12, 6], axis: 'y', front: [-1, 0] },
 ];
 export const SPIN = { spin2: 2, spin3: 3, spin4: 4, spin5: 5 };
-const ARROWS = {
+export const ARROWS = {
   arrow1: [[0, -1]], arrow1d: [[1, -1]], arrow2: [[0, -1], [0, 1]], arrow2d: [[1, -1], [-1, 1]],
   arrow3: [[-1, -1], [1, 0], [0, 1]], arrow4: [[0, -1], [1, 0], [0, 1], [-1, 0]], arrow4d: [[1, -1], [1, 1], [-1, 1], [-1, -1]],
 };
@@ -92,14 +92,14 @@ export function pirateMoves(s, p) {
   const cell = tileAt(s, p.x, p.y);
   const forced = cell.kind === 'arrow' || cell.kind === 'horse';
   for (const [x, y, via] of landTargets(s, p)) {
-    for (const coin of s.pending ? [s.pending.coin] : cell.coins > 0 && via !== 'spin' ? [false, true] : [false]) {
+    for (const coin of s.pending ? [s.pending.coin] : p.carry ? (via === 'spin' ? [true] : [true, false]) : cell.coins > 0 && via !== 'spin' ? [false, true] : [false]) {
       if (isSea(x, y)) {
         const sh = shipAt(s, x, y);
         if (sh >= 0) { if (!allied(s, sh, p.team)) continue; }
         else if (!forced) continue;
         add(x, y, via, coin); continue;
       }
-      if (via === 'spin') { const en = here(s, x, y).filter(q => !allied(s, q.team, p.team) && q.spin === p.spin + 1); if (en.length && coin) continue; add(x, y, via, false); continue; }
+      if (via === 'spin') { const en = here(s, x, y).filter(q => !allied(s, q.team, p.team) && q.spin === p.spin + 1); if (en.length && coin) continue; add(x, y, via, coin); continue; }
       const t = tileAt(s, x, y);
       const enemies = here(s, x, y).filter(q => !allied(s, q.team, p.team));
       if (coin && (!t.open || t.kind === 'fort' || t.kind === 'abor')) continue;
@@ -129,8 +129,9 @@ export function legalMoves(s) {
 
 function msg(s, text) { s.log.push(text); if (s.log.length > 200) s.log.shift(); }
 const pname = p => `${TEAMS[p.team].name[0]}${p.id % 3 + 1}`;
-function die(s, p, why) { p.alive = false; p.x = p.y = null; p.spin = 0; p.trapped = false; msg(s, `☠ ${pname(p)}: ${why}`); }
-function toShip(s, p) { const sh = s.ships[p.team]; p.x = sh.x; p.y = sh.y; p.spin = 0; p.trapped = false; }
+function dropCarry(s, p) { if (!p.carry) return; p.carry = false; if (p.x != null && isIsland(p.x, p.y)) tileAt(s, p.x, p.y).coins++; else s.lost++; }
+function die(s, p, why) { dropCarry(s, p); p.alive = false; p.x = p.y = null; p.spin = 0; p.trapped = false; msg(s, `☠ ${pname(p)}: ${why}`); }
+function toShip(s, p) { dropCarry(s, p); const sh = s.ships[p.team]; p.x = sh.x; p.y = sh.y; p.spin = 0; p.trapped = false; }
 function reveal(s, t, p) {
   if (t.open) return; t.open = true;
   if (CHEST[t.kind]) t.coins += CHEST[t.kind];
@@ -162,7 +163,7 @@ function walk(s, p, x, y, via, coin) {
     if (t.kind === 'cannon') { const [dx, dy] = t.dirs[0]; let nx = x, ny = y; do { nx += dx; ny += dy; } while (isIsland(nx, ny)); next(nx, ny); continue; }
     if (t.kind === 'croc') {
       [x, y] = origin; p.x = x; p.y = y; if (isIsland(x, y) && SPIN[tileAt(s, x, y).kind]) p.spin = origSpin; msg(s, `🐊 ${pname(p)} вернулся назад`);
-      if (isIsland(x, y)) { if (coin) tileAt(s, x, y).coins++; } else if (coin) { const sh = shipAt(s, x, y); if (sh >= 0) deliver(s, sh, true); else s.lost++; }
+      if (isIsland(x, y)) { if (coin && SPIN[tileAt(s, x, y).kind] && origSpin) p.carry = true; else if (coin) tileAt(s, x, y).coins++; } else if (coin) { const sh = shipAt(s, x, y); if (sh >= 0) deliver(s, sh, true); else s.lost++; }
       return;
     }
     if (t.kind === 'ogre') { if (coin) t.coins++; die(s, p, 'съеден людоедом'); return; }
@@ -180,7 +181,7 @@ function walk(s, p, x, y, via, coin) {
     friends.forEach(q => q.trapped = false);
     if (t.kind === 'trap') p.trapped = friends.length === 0 && via !== 'spin';
     if (t.kind === 'barrel') p.drunkUntil = s.turn + 4 + 1;
-    if (coin) t.coins++;
+    if (coin) { if (SPIN[t.kind]) p.carry = true; else t.coins++; } // на вертушке монета едет «в руках»
     return;
   }
   if (coin) s.lost++;
@@ -206,8 +207,8 @@ export function applyMove(s0, m, { asPlayer = null } = {}) {
     const p = s.pirates[m.pid];
     if (m.rum) { s.rum[team]--; p.trapped = false; msg(s, `🍾 ${pname(p)} выпил ром и выбрался`); }
     const cont = !!s.pending;
-    if (isIsland(p.x, p.y) && !cont) { const t = tileAt(s, p.x, p.y); if (t.kind === 'plane' && !t.used && m.via === 'plane') t.used = true; if (m.coin) t.coins--; }
-    if (m.via === 'spin') { const t = tileAt(s, p.x, p.y); walk(s, p, p.x, p.y, 'spin', false); void t; }
+    if (isIsland(p.x, p.y) && !cont) { const t = tileAt(s, p.x, p.y); if (t.kind === 'plane' && !t.used && m.via === 'plane') t.used = true; if (p.carry) { p.carry = false; if (!m.coin) t.coins++; } else if (m.coin) t.coins--; }
+    if (m.via === 'spin') { const t = tileAt(s, p.x, p.y); walk(s, p, p.x, p.y, 'spin', m.coin); void t; }
     else walk(s, p, m.x, m.y, m.via, m.coin);
   }
   s.moves.push({ n: s.moves.length + 1, team, ...m });
@@ -215,7 +216,7 @@ export function applyMove(s0, m, { asPlayer = null } = {}) {
   return s;
 }
 
-export function coinsLeft(s) { let n = s.pending?.coin ? 1 : 0; for (const t of Object.values(s.tiles)) n += t.coins + (!t.open && CHEST[t.kind] ? CHEST[t.kind] : 0); return n; }
+export function coinsLeft(s) { let n = (s.pending?.coin ? 1 : 0) + s.pirates.filter(p => p.alive && p.carry).length; for (const t of Object.values(s.tiles)) n += t.coins + (!t.open && CHEST[t.kind] ? CHEST[t.kind] : 0); return n; }
 
 function endTurn(s) {
   if (s.pending) {
@@ -294,7 +295,7 @@ export function loadState(text) {
     if (!activeTeams(mode).includes(p.team)) err(`пират #${i}: команда ${TEAMS[p.team].name} не участвует в режиме ${mode}`);
     if (alive && !(Number.isInteger(x) && Number.isInteger(y) && inGrid(x, y))) err(`пират #${i}: координаты x,y 0..12 (или onShip: true)`);
     if (alive && isSea(x, y)) { const sh = shipAt(s, x, y); if (sh >= 0 && !allied(s, sh, p.team)) err(`пират #${i} стоит на вражеском корабле`); }
-    s.pirates.push({ id: 0, team: p.team, x: alive ? x : null, y: alive ? y : null, alive, spin: p.spin ?? 0, trapped: !!p.trapped, drunkUntil: p.drunkUntil ?? 0 });
+    s.pirates.push({ id: 0, team: p.team, x: alive ? x : null, y: alive ? y : null, alive, spin: p.spin ?? 0, trapped: !!p.trapped, drunkUntil: p.drunkUntil ?? 0, carry: !!p.carry });
   });
   for (const t of activeTeams(mode)) while (count[t]++ < 3) s.pirates.push({ id: 0, team: t, x: null, y: null, alive: false, spin: 0, trapped: false, drunkUntil: 0 });
   s.pirates.sort((a, b) => a.team - b.team); s.pirates.forEach((p, i) => p.id = i);

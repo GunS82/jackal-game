@@ -23,6 +23,22 @@ test('сохранение/загрузка сохраняет всё', () => { 
 test('режим 1v1: два корабля, ходы чередуются 0 → 2', () => { let s = G.newGame({ seed: 2, mode: '1v1' }); assert.equal(s.pirates.length, 6); s = G.applyMove(s, G.legalMoves(s)[0]); assert.equal(s.current, 2); assert.equal(G.shipAt(s, 0, 6), -1); });
 test('стрелка с двумя направлениями: выбор в тот же ход', () => { let s = pos({ tiles: { '6,10': { kind: 'arrow2', dirs: [[-1, 0], [1, 0]] } }, pirates: [{ team: 0, x: 6, y: 11 }] }); s = mv(s, m => m.x === 6 && m.y === 10); assert.equal(s.current, 0); assert.ok(s.pending); const ms = G.legalMoves(s); assert.deepEqual(ms.map(m => m.x).sort(), [5, 7]); s = mv(s, m => m.x === 7); assert.equal(s.pending, null); assert.deepEqual([s.pirates[0].x, s.pirates[0].y], [7, 10]); });
 test('конь: ход буквой Г в тот же ход', () => { let s = pos({ tiles: { '6,10': { kind: 'horse' } }, pirates: [{ team: 0, x: 6, y: 11 }] }); s = mv(s, m => m.x === 6 && m.y === 10); assert.ok(s.pending); s = mv(s, m => m.x === 7 && m.y === 8); assert.deepEqual([s.pirates[0].x, s.pirates[0].y], [7, 8]); });
-test('вертушка → крокодил: возврат с тем же шагом', () => { let s = G.loadState(fs.readFileSync('test-positions/spin-croc.json', 'utf8')); s = mv(s, m => m.x === 6 && m.y === 8); assert.deepEqual([s.pirates[0].x, s.pirates[0].y, s.pirates[0].spin], [6, 9, 3]); });
-test('стрелка поворачивается картинкой', () => { const s = pos({ tiles: { '3,3': { kind: 'arrow3', rot: 1 } }, pirates: [{ team: 0, onShip: true }] }); assert.equal(G.tileRotation(G.tileAt(s, 3, 3)), 1); });
+test('spin-croc.json: крокодил возвращает на вертушку с тем же шагом', () => { let s = G.loadState(fs.readFileSync('test-positions/spin-croc.json', 'utf8')); s = mv(s, m => m.x === 6 && m.y === 8); assert.deepEqual([s.pirates[0].x, s.pirates[0].y, s.pirates[0].spin], [6, 9, 3]); assert.equal(s.current, 0); assert.ok(G.legalMoves(s).some(m => m.via === 'step' && m.y === 8 && m.x === 5)); });
+test('картинки стрелок совпадают с логикой (поворот 0) и поворачиваются на rot', () => {
+  const sig = ds => ds.map(d => d.join()).sort().join(';');
+  for (const [kind, dirs] of Object.entries(G.ARROWS)) {
+    const svg = fs.readFileSync(`assets/tiles/${kind}.svg`, 'utf8');
+    const drawn = [...svg.matchAll(/rotate\((-?[\d.]+) 50 50\)/g)].map(m => { const a = +m[1] * Math.PI / 180; return [Math.round(Math.sin(a)), Math.round(-Math.cos(a))]; });
+    assert.equal(sig(drawn), sig(dirs), kind);
+    for (let rot = 0; rot < 4; rot++) { const s = pos({ tiles: { '3,3': { kind, rot } }, pirates: [{ team: 0, onShip: true }] }); const t = G.tileAt(s, 3, 3); assert.equal(G.tileRotation(t), dirs.length === 4 || (kind.startsWith('arrow2') && rot >= 2) ? G.tileRotation(t) : rot); const r = drawn.map(([dx, dy]) => { let d = [dx, dy]; for (let i = 0; i < rot; i++) d = [-d[1], d[0]]; return d; }); assert.equal(sig(r), sig(t.dirs), kind + ' rot ' + rot); }
+  }
+});
+test('spin-coin.json: монета едет с пиратом через вертушку', () => {
+  let s = G.loadState(fs.readFileSync('test-positions/spin-coin.json', 'utf8'));
+  s = mv(s, m => m.x === 6 && m.y === 9 && m.coin);
+  assert.equal(G.tileAt(s, 6, 10).coins, 0); assert.equal(s.pirates[0].carry, true);
+  s = mv(s, m => m.via === 'spin' && m.coin); s = mv(s, m => m.via === 'spin' && m.coin); assert.equal(s.pirates[0].spin, 3); assert.equal(G.tileAt(s, 6, 9).coins, 0);
+  s = mv(s, m => m.x === 6 && m.y === 8 && m.coin);
+  assert.deepEqual([s.pirates[0].x, s.pirates[0].y, s.pirates[0].carry], [6, 8, false]); assert.equal(G.tileAt(s, 6, 8).coins, 1); assert.equal(G.coinsLeft(s), 1);
+});
 test('файл неверной версии', () => { assert.throws(() => G.loadState({ version: 99, pirates: [] }), /версия/); });
