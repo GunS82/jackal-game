@@ -7,5 +7,5 @@
 <label class="me">Это устройство: <select id="me"><option value="all">оба игрока (hot-seat)</option><option value="0">я играю за игрока 1</option><option value="1">я играю за игрока 2</option></select></label><button id="newBtn">Новая игра</button><button id="saveBtn">Сохранить</button><button id="loadBtn">Загрузить позицию</button><input type="file" id="file" accept=".json,application/json" hidden></nav>
 <p class="help">Нажмите на своего пирата (повторное нажатие — следующий пират на клетке), затем на подсвеченную клетку. Для корабля — «Двигать корабль». Игра по файлам: каждый выбирает «я играю за игрока N», после хода жмёт «Сохранить» и пересылает файл сопернику, тот — «Загрузить позицию».</p>
 <pre id="log"></pre>
-<dialog id="menu"><h2>Новая игра</h2><button data-mode="2p">1 на 1 — классика (по 2 команды, общий счёт)</button><button data-mode="1v1">1 на 1 — по одному кораблю</button><form method="dialog"><button>Отмена</button></form></dialog>
+<dialog id="menu"><h2>Новая игра</h2><button data-mode="2p">1 на 1 — классика (по 2 команды, общий счёт)</button><button data-mode="1v1">1 на 1 — по одному кораблю</button><label class="opt"><input type="checkbox" id="optCroc"> Домашнее правило: открытый крокодил убивает</label><form method="dialog"><button>Отмена</button></form></dialog>
 <script type="module" src="src/ui.js"></script></body></html>

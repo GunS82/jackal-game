@@ -27,6 +27,7 @@
   ]
 }
 ```
+- `options` — настройки партии: `{ "houseCrocDeath": false }` (true — домашнее правило: цепочка на открытого крокодила убивает). Необязательно; неизвестные ключи и не-boolean значения отклоняются.
 - `over`, `endReason` — конец партии и причина: `majority` | `allCoins` | `noPirates` | `noMoves` (ничья) | `noShips` (зарезервировано).
 - `pending.visits` — счётчик заходов в клетки за текущий ход (защита от циклов).
 - `moves` — журнал ходов `[{n, team, type, pid, x, y, via, coin}]`, `log` — текстовый журнал, `pending` — незавершённый ход по стрелке/коню `{pid, coin, origin, visits}` (обычно null).

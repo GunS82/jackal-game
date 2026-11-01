@@ -76,7 +76,7 @@ function click(x, y, targets) {
   render();
 }
 
-function start(mode) { state = G.newGame({ mode, seed: Date.now() % 1e9 }); sel = null; render(); }
+function start(mode) { state = G.newGame({ mode, seed: Date.now() % 1e9, options: { houseCrocDeath: $('#optCroc').checked } }); sel = null; render(); }
 $('#coinBtn').onclick = () => { withCoin = !withCoin; render(); };
 $('#shipBtn').onclick = () => { sel = sel === 'ship' ? null : 'ship'; render(); };
 $('#reviveBtn').onclick = () => { const m = G.legalMoves(state).find(m => m.type === 'revive'); if (m) { state = G.applyMove(state, m); sel = null; render(); } };

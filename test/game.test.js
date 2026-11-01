@@ -70,10 +70,24 @@ test('цикл через выбор направления (pending) тоже �
   s = mv(s, m => m.x === 6 && m.y === 10); assert.ok(s.pending); s = mv(s, m => m.x === 6 && m.y === 9);
   assert.ok(s.pending); s = mv(s, m => m.x === 6 && m.y === 9); assert.equal(s.pirates[0].alive, false);
 });
-test('цепочка на открытого крокодила — гибель; закрытый — отбрасывает', () => {
+test('по правилам (по умолчанию): цепочка на открытого крокодила отбрасывает назад', () => {
   let s = pos({ tiles: { '6,10': { kind: 'ice' }, '6,9': { kind: 'croc', open: true } }, pirates: [{ team: 0, x: 6, y: 11 }] });
+  assert.equal(s.options.houseCrocDeath, false); assert.equal(G.newGame({ seed: 1 }).options.houseCrocDeath, false);
+  s = mv(s, m => m.x === 6 && m.y === 10); assert.deepEqual([s.pirates[0].x, s.pirates[0].y, s.pirates[0].alive], [6, 11, true]);
+});
+test('по правилам: петля стрелка → крокодил ловится защитой от циклов, а не зависанием', () => {
+  let s = pos({ tiles: { '6,10': { kind: 'arrow1', dirs: [[0, -1]] }, '6,9': { kind: 'croc' } }, pirates: [{ team: 0, x: 6, y: 11 }] });
+  s = mv(s, m => m.x === 6 && m.y === 10); assert.ok(s.pirates[0].alive); assert.deepEqual([s.pirates[0].x, s.pirates[0].y], [6, 11]);
+});
+test('опция houseCrocDeath сохраняется в файле и проверяется', () => {
+  const s = G.newGame({ seed: 2, options: { houseCrocDeath: true } }); assert.equal(G.loadState(G.serialize(s)).options.houseCrocDeath, true);
+  assert.throws(() => G.loadState({ options: { foo: true }, pirates: [] }), /неизвестная опция/);
+  assert.throws(() => G.loadState({ options: { houseCrocDeath: 'да' }, pirates: [] }), /true\/false/);
+});
+test('домашнее правило: цепочка на открытого крокодила — гибель; закрытый — отбрасывает', () => {
+  let s = pos({ options: { houseCrocDeath: true }, tiles: { '6,10': { kind: 'ice' }, '6,9': { kind: 'croc', open: true } }, pirates: [{ team: 0, x: 6, y: 11 }] });
   s = mv(s, m => m.x === 6 && m.y === 10); assert.equal(s.pirates[0].alive, false);
-  let s2 = pos({ tiles: { '6,10': { kind: 'ice' }, '6,9': { kind: 'croc', open: false } }, pirates: [{ team: 0, x: 6, y: 11 }] });
+  let s2 = pos({ options: { houseCrocDeath: true }, tiles: { '6,10': { kind: 'ice' }, '6,9': { kind: 'croc', open: false } }, pirates: [{ team: 0, x: 6, y: 11 }] });
   s2 = mv(s2, m => m.x === 6 && m.y === 10); assert.deepEqual([s2.pirates[0].x, s2.pirates[0].y, s2.pirates[0].alive], [6, 11, true]);
 });
 test('конец: majority — больше половины монет у игрока (команды игрока вместе)', () => {
@@ -93,7 +107,7 @@ test('пьяный пират не даёт закончить партию (1v1
   const { s: g, n } = simulate(1, '1v1', 3000); assert.ok(n > 207 || g.endReason !== 'noMoves');
 });
 test('ничья noMoves: ходов нет ни у кого и никто не пьян', () => {
-  let s = pos({ mode: '1v1', tiles: { '3,3': { kind: 'trap' }, '8,8': { kind: 'trap' }, '5,5': { coins: 1 }, '6,10': { kind: 'ice' }, '6,9': { kind: 'croc' } }, pirates: [{ team: 0, x: 6, y: 11 }, { team: 0, x: 8, y: 8, trapped: true }, { team: 2, x: 3, y: 3, trapped: true }] });
+  let s = pos({ mode: '1v1', options: { houseCrocDeath: true }, tiles: { '3,3': { kind: 'trap' }, '8,8': { kind: 'trap' }, '5,5': { coins: 1 }, '6,10': { kind: 'ice' }, '6,9': { kind: 'croc' } }, pirates: [{ team: 0, x: 6, y: 11 }, { team: 0, x: 8, y: 8, trapped: true }, { team: 2, x: 3, y: 3, trapped: true }] });
   s = mv(s, m => m.x === 6 && m.y === 10); assert.equal(s.endReason, 'noMoves'); assert.deepEqual(G.winner(s), [0, 1]);
 });
 test('второй пират той же команды на капкане освобождает первого', () => {

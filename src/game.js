@@ -44,7 +44,8 @@ export function teamsOfPlayer(s, pl) { return activeTeams(s.mode).filter(t => pl
 export function allied(state, a, b) { return a === b || (state.mode !== '4p' && state.mode !== '1v1' && a % 2 === b % 2); }
 export function sideOf(state, team) { return state.mode === '4p' ? team : state.mode === '1v1' ? team / 2 : team % 2; }
 
-export function newGame({ mode = '2p', seed = Date.now() } = {}) {
+export const DEFAULT_OPTIONS = { houseCrocDeath: false }; // houseCrocDeath — домашнее правило: цепочка на открытого крокодила убивает
+export function newGame({ mode = '2p', seed = Date.now(), options = {} } = {}) {
   const r = rng(seed);
   const deck = [];
   for (const [k, n] of Object.entries(DECK)) for (let i = 0; i < n; i++) deck.push(k);
@@ -58,7 +59,7 @@ export function newGame({ mode = '2p', seed = Date.now() } = {}) {
   }
   const pirates = [];
   TEAMS.forEach((T, team) => { if (activeTeams(mode).includes(team)) for (let i = 0; i < 3; i++) pirates.push({ id: pirates.length, team, x: T.ship[0], y: T.ship[1], alive: true, spin: 0, trapped: false, drunkUntil: 0 }); });
-  return { version: FORMAT_VERSION, seed, mode, turn: 0, current: 0, pending: null, endReason: null, moves: [], tiles, ships: TEAMS.map(T => ({ x: T.ship[0], y: T.ship[1] })), pirates, score: [0, 0, 0, 0], rum: [0, 0, 0, 0], lost: 0, over: false, log: [] };
+  return { version: FORMAT_VERSION, seed, mode, turn: 0, current: 0, options: { ...DEFAULT_OPTIONS, ...options }, pending: null, endReason: null, moves: [], tiles, ships: TEAMS.map(T => ({ x: T.ship[0], y: T.ship[1] })), pirates, score: [0, 0, 0, 0], rum: [0, 0, 0, 0], lost: 0, over: false, log: [] };
 }
 
 export const tileAt = (s, x, y) => s.tiles[key(x, y)];
@@ -163,7 +164,7 @@ function walk(s, p, x, y, via, coin) {
       p.x = x; p.y = y; p.spin = 0; return;
     }
     const t = tileAt(s, x, y);
-    if (t.kind === 'croc' && t.open && inChain) { if (coin) s.lost++; die(s, p, 'цепочка привела на открытого крокодила'); return; }
+    if (t.kind === 'croc' && t.open && inChain && s.options?.houseCrocDeath) { if (coin) s.lost++; die(s, p, 'цепочка привела на открытого крокодила'); return; }
     reveal(s, t, p);
     const next = (nx, ny) => { delta = [nx - x, ny - y]; from = [x, y]; x = nx; y = ny; };
     if (t.kind === 'arrow' && t.dirs.length === 1) { next(x + t.dirs[0][0], y + t.dirs[0][1]); continue; }
@@ -273,7 +274,8 @@ export function loadState(text) {
   if (!raw || typeof raw !== 'object') err('ожидался объект');
   const mode = raw.mode ?? '2p'; if (!MODES[mode]) err(`mode должен быть одним из ${Object.keys(MODES).join(', ')}`);
   if (raw.version != null && raw.version > FORMAT_VERSION) err(`версия формата ${raw.version} новее поддерживаемой (${FORMAT_VERSION})`);
-  const s = { version: FORMAT_VERSION, seed: raw.seed ?? null, pending: raw.pending ?? null, moves: Array.isArray(raw.moves) ? raw.moves : [], log: Array.isArray(raw.log) ? raw.log : [], mode, turn: raw.turn ?? 0, current: raw.current ?? 0, tiles: {}, ships: [], pirates: [], score: raw.score ?? [0, 0, 0, 0], rum: raw.rum ?? [0, 0, 0, 0], lost: raw.lost ?? 0, over: !!raw.over, endReason: raw.endReason ?? null };
+  const s = { version: FORMAT_VERSION, seed: raw.seed ?? null, pending: raw.pending ?? null, moves: Array.isArray(raw.moves) ? raw.moves : [], log: Array.isArray(raw.log) ? raw.log : [], mode, turn: raw.turn ?? 0, current: raw.current ?? 0, tiles: {}, ships: [], pirates: [], score: raw.score ?? [0, 0, 0, 0], rum: raw.rum ?? [0, 0, 0, 0], lost: raw.lost ?? 0, over: !!raw.over, endReason: raw.endReason ?? null, options: { ...DEFAULT_OPTIONS } };
+  if (raw.options != null) { if (typeof raw.options !== 'object') err('options — объект'); for (const [k, v] of Object.entries(raw.options)) { if (!(k in DEFAULT_OPTIONS)) err(`неизвестная опция "${k}"`); if (typeof v !== 'boolean') err(`опция ${k} должна быть true/false`); s.options[k] = v; } }
   if (!activeTeams(mode).includes(s.current)) err('current: эта команда не участвует в режиме');
   if (![0, 1, 2, 3].includes(s.current)) err('current должен быть 0..3');
   for (const f of ['score', 'rum']) if (!Array.isArray(s[f]) || s[f].length !== 4 || s[f].some(v => !Number.isInteger(v) || v < 0)) err(`${f} — массив из 4 неотрицательных целых`);
