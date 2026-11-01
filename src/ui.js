@@ -41,10 +41,10 @@ function render() {
     const ps = s.pirates.filter(p => p.alive && p.x === x && p.y === y);
     ps.forEach((p, i) => {
       const d = document.createElement('i');
-      const coin = V.pirateHasCoin(s, p, { sel, withCoin }), tre = p.carry === G.TREASURE_VALUE || (p.id === sel && withCoin === 'T') || (s.pending?.pid === p.id && s.pending.treasure);
+      const mark = V.coinMark(s, p, moves, { sel, withCoin, myTurn: myTurn() }), coin = mark === 'coin' || mark === 'treasure', tre = mark === 'treasure';
       d.className = `pirate n${ps.length} i${i}` + (p.id === sel ? ' sel' : '') + (p.trapped ? ' trapped' : '') + (p.inCave ? ' incave' : '');
-      d.title = G.pieceName(s, p) + (coin ? (tre ? ', несёт сокровище' : ', несёт монету') : '') + (p.trapped ? ', в капкане' : '') + (p.inCave ? ', в пещере' : '');
-      d.innerHTML = pic(pirateImg(p.team), '●', 'pi') + (coin ? (tre ? '<b class="pcoin ptre">💰</b>' : pic(coinImg, '🪙', 'pcoin')) : '') + (p.spin ? `<em>${p.spin}</em>` : '') + (p.role ? `<b class="role">${ROLE_BADGE[p.role]}</b>` : '');
+      d.title = G.pieceName(s, p) + (coin ? (tre ? ', несёт сокровище' : ', несёт монету') : '') + (p.trapped ? ', в капкане' : '') + (p.inCave ? ', в пещере' : '') + (mark === 'can' ? ', может взять монету' : '');
+      d.innerHTML = pic(pirateImg(p.team), '●', 'pi') + (coin ? (tre ? '<b class="pcoin ptre">💰</b>' : pic(coinImg, '🪙', 'pcoin')) : mark === 'can' ? pic(coinImg, '🪙', 'pcoin can') : '') + (p.spin ? `<em>${p.spin}</em>` : '') + (p.role ? `<b class="role">${ROLE_BADGE[p.role]}</b>` : '');
       c.append(d);
     });
     const here = targets.filter(m => m.x === x && m.y === y);
