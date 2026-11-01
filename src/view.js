@@ -162,3 +162,12 @@ export const localInProgress = s => !!s && !s.over && (s.turn > 0 || (s.moves?.l
 
 // v0.5.6: пока открыта плашка выбора и ни один пират с этой клетки не выбран — ходы не подсвечиваются.
 export const plateHidesMoves = (plate, sel) => !!plate && !plate.pids.includes(sel);
+
+// v0.5.7: клетка суши (13×13 без моря по краю и угловых клеток) — для пустого поля.
+export const isLandCell = (x, y) => { const N = G.N; if (x <= 0 || y <= 0 || x >= N - 1 || y >= N - 1) return false; return !((x === 1 || x === N - 2) && (y === 1 || y === N - 2)); };
+// Что предложить кнопкой «Продолжить»: только читаемая и не законченная сохранённая партия.
+const MODE_LABEL = { '1v1': '1 на 1 — Белые против Чёрных', '2p': '1 на 1 — классика (4 команды)', '4p': 'на четверых' };
+export function resumeInfo(raw) {
+  if (!raw) return null; let s; try { s = G.loadState(raw); } catch { return null; }
+  if (s.over) return null; return { mode: s.mode, label: `${MODE_LABEL[s.mode] ?? s.mode}, ход №${s.turn + 1}` };
+}

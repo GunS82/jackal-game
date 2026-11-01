@@ -111,7 +111,7 @@ function goOnline(sess) {
     state = msg.state; net.opponent = msg.opponent; showCode(msg.code);
     if (msg.opponent !== 'waiting' && $('#online').open) $('#online').close();
     render();
-  }, ok => { if (net && net.connected !== ok) { net.connected = ok; if (state) render(); } }, () => { if (!net) return; net.gone = true; net.stop(); Net.forget(); if (state) render(); else renderBanner(); }); // без alert: плашка
+  }, ok => { if (net && net.connected !== ok) { net.connected = ok; if (state) render(); } }, () => { if (!net) return; net.stop(); Net.forget(); net = null; showMenu('Партия больше не существует'); }); // сервер её не знает (перезапуск/уборка): сессию забыть, открыть меню
   window.jackalDropConnection = () => net?.stop.drop(); // для Тестировщика: имитация обрыва связи
 }
 // Покинуть онлайн-партию. Пока партия идёт — только с подтверждения; возвращает false, если игрок передумал.
@@ -136,13 +136,13 @@ function click(x, y, targets) {
   render();
 }
 
-function start(mode) { if (!goLocal()) return; state = G.newGame({ mode, seed: Date.now() % 1e9, options: { houseCrocDeath: $('#optCroc').checked, archipelagoMissionary: $('#optArch').checked } }); sel = null; render(); }
+function start(mode) { if (!goLocal()) return; $('#crew').hidden = false; $('#turnDot').hidden = false; state = G.newGame({ mode, seed: Date.now() % 1e9, options: { houseCrocDeath: $('#optCroc').checked, archipelagoMissionary: $('#optArch').checked } }); sel = null; render(); }
 $('#coinBtn').onclick = () => { withCoin = V.nextCargo(G.legalMoves(state), sel, withCoin); render(); };
 $('#rumBtn').onclick = () => { sel = sel === 'rum' ? null : 'rum'; render(); };
 $('#shipBtn').onclick = () => { sel = sel === 'ship' ? null : 'ship'; render(); };
 $('#reviveBtn').onclick = () => { const m = G.legalMoves(G.publicState(state)).find(m => m.type === 'revive'); if (m) play(m); };
 $('#me').onchange = e => { me = e.target.value; localStorage.setItem('jackal-me', me); sel = null; render(); };
-$('#newBtn').onclick = () => $('#menu').showModal();
+$('#newBtn').onclick = () => showMenu();
 document.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => { start(b.dataset.mode); $('#menu').close(); });
 $('#saveBtn').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([G.serialize(state)], { type: 'application/json' })); a.download = `jackal-hod-${state.turn + 1}.json`; a.click(); };
 // онлайн: спросить ДО выбора файла; сам выход — после того как файл выбран
@@ -160,9 +160,25 @@ $('#shareBtn').onclick = async () => { const code = net?.sess.code; if (!code) r
 $('#joinBtn').onclick = async () => { const code = $('#codeIn').value.trim().toUpperCase(); if (!code) return; try { if (!goLocal()) return; const sess = await Net.join(code); goOnline(sess); $('#online').close(); } catch (e) { $('#onlineErr').textContent = e.message; } };
 $('#codeIn').onkeydown = e => { if (e.key === 'Enter') $('#joinBtn').click(); };
 $('#leaveBtn').onclick = () => { if (!goLocal()) return; $('#online').close(); try { state = G.loadState(localStorage.getItem('jackal-save')); } catch { return start(V.DEFAULT_MODE); } render(); };
+// Нейтральное поле без фигур (за меню в новой вкладке).
+function renderEmpty() {
+  state = null; sel = null; plate = null; const b = $('#board'); b.innerHTML = '';
+  for (let y = 0; y < G.N; y++) for (let x = 0; x < G.N; x++) { const c = document.createElement('div'); c.className = 'cell ' + (V.isLandCell(x, y) ? 'closed' : 'sea'); c.style.gridArea = `${y + 1} / ${x + 1}`; b.append(c); }
+  for (const id of ['#crew', '#banner', '#youAre']) $(id).hidden = true;
+  $('#score').textContent = ''; $('#status').textContent = ''; $('#turnText').textContent = ''; $('#turnPrefix').textContent = ''; $('#turnDot').hidden = true; $('#log').textContent = '';
+  $('#me').closest('label').hidden = false; $('#banner').hidden = true;
+}
+// Главное меню; сохранённая локальная партия — только по кнопке «Продолжить».
+function showMenu(note = '') {
+  if (!state) renderEmpty();
+  const info = V.resumeInfo(localStorage.getItem('jackal-save')), cb = $('#continueBtn');
+  cb.hidden = !info; if (info) cb.querySelector('small').textContent = info.label;
+  $('#menuNote').textContent = note; $('#menuNote').hidden = !note;
+  if (!$('#menu').open) $('#menu').showModal();
+}
+$('#continueBtn').onclick = () => { if (!goLocal()) return; try { state = G.loadState(localStorage.getItem('jackal-save')); sel = null; plate = null; $('#crew').hidden = false; $('#menu').close(); render(); } catch (e) { alert(e.message); } };
+$('#menu').addEventListener('close', () => { if (!state && !net && !$('#online').open) start(V.DEFAULT_MODE); });
+$('#online').addEventListener('close', () => { if (!state && !net) showMenu(); }); // «Отмена» на пустом поле — новая 1v1
 const sess = Net.saved();
 if (sess && location.protocol.startsWith('http')) goOnline(sess);
-else { // новая вкладка без онлайн-сессии: за меню видна сохранённая (или новая 1v1) партия, открыто главное меню
-  try { const saved = localStorage.getItem('jackal-save'); if (saved) { state = G.loadState(saved); render(); } else start(V.DEFAULT_MODE); } catch { start(V.DEFAULT_MODE); }
-  $('#menu').showModal();
-}
+else showMenu(); // новая вкладка: меню над пустым полем, старую партию не восстанавливаем сами

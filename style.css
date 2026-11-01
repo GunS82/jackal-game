@@ -82,3 +82,10 @@ nav button:disabled{opacity:.45;cursor:not-allowed}nav button[aria-pressed=true]
 /* v0.5.6: фишки плашки — не больше клетки */
 .plate{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));justify-items:center;align-items:center;gap:0;padding:0 2px;border-width:2px;height:100%;box-sizing:border-box}
 .plate .tok{width:auto;height:auto;max-width:92%;max-height:92%;aspect-ratio:1;inline-size:92%;box-sizing:border-box}
+
+/* v0.5.7 */
+#menu .note{margin:0 0 8px;padding:6px 10px;border-radius:8px;background:#f0b6a4;color:#3b2a14}
+#menu .note[hidden],#continueBtn[hidden]{display:none}
+#continueBtn small{display:block;font-size:.75em;opacity:.8}
+.plate{min-width:0;max-width:100%;overflow:hidden}
+#board{overflow:hidden;contain:layout}

@@ -283,3 +283,16 @@ test('v0.5.6: открыта плашка и пират не выбран — б
   assert.match(css, /\.plate\{display:grid;grid-template-columns:repeat\(var\(--n\)/); // фишка = одна колонка поля
   for (let n = 2; n <= 6; n++) assert.ok(V.platePlacement({ x: 6, n }).span >= n, 'колонок плашки не меньше фишек');
 });
+
+test('v0.5.7: новая вкладка — меню над пустым полем, «Продолжить» только для сохранённой незаконченной партии', () => {
+  const s = G.newGame({ mode: '1v1', seed: 9 });
+  const land = []; for (let y = 0; y < G.N; y++) for (let x = 0; x < G.N; x++) if (V.isLandCell(x, y)) land.push(`${x},${y}`);
+  assert.deepEqual(land.sort(), Object.keys(s.tiles).sort(), 'пустое поле повторяет форму острова');
+  assert.equal(V.resumeInfo(null), null); assert.equal(V.resumeInfo('{bad'), null);
+  assert.equal(V.resumeInfo(G.serialize({ ...s, over: true })), null);
+  assert.deepEqual(V.resumeInfo(G.serialize(s)), { mode: '1v1', label: '1 на 1 — Белые против Чёрных, ход №1' });
+  assert.equal(V.resumeInfo(G.serialize(G.newGame({ mode: '2p', seed: 1 }))).mode, '2p');
+  const ui = fs.readFileSync(new URL('../src/ui.js', import.meta.url), 'utf8');
+  assert.match(ui, /else showMenu\(\);/); assert.doesNotMatch(ui, /if \(saved\) \{ state = G\.loadState\(saved\)/, 'нет автовосстановления');
+  assert.match(ui, /Net\.forget\(\); net = null; showMenu\('Партия больше не существует'\)/);
+});
