@@ -480,8 +480,8 @@ export function classifyMoves(s) {
     try {
       const n = applyMove(s, m);
       if (m.pid != null && !n.pirates[m.pid].alive) kind = 'death';
-      else if (n.score.reduce((a, b) => a + b, 0) > s.score.reduce((a, b) => a + b, 0)) kind = 'coin';
-      else if (n.lost > s.lost) kind = 'coinLost'; // пират плывёт, монета тонет (jackal.su: «Если пират попал в море с монетой, она тонет. Пират остаётся на плаву.»)
+      else if (n.lost > s.lost) kind = 'coinLost'; // груз (монета или сокровище галеона) утонул — даже если цепочка потом дошла до корабля
+      else if (n.score.reduce((a, b) => a + b, 0) > s.score.reduce((a, b) => a + b, 0)) kind = 'coin'; // пират плывёт, монета тонет (jackal.su: «Если пират попал в море с монетой, она тонет. Пират остаётся на плаву.»)
     } catch { kind = 'death'; }
     return { ...m, kind };
   });
