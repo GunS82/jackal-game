@@ -1,47 +1,75 @@
-# Как выложить «Шакал» бесплатно
+# Деплой «Шакала»
 
-Схема: **клиент** (страница игры) — на GitHub Pages, **сервер онлайн-игры** — на Render (тариф Free).
-Игра на одном устройстве (hot-seat) и по файлам работает и без сервера; сервер нужен только для «Играть онлайн».
+Клиент публикуется на GitHub Pages. Сервер онлайн-игры — Cloudflare Worker, по одной SQLite Durable Object на комнату. Hot-seat и игра по файлам работают и без сервера.
 
-Ограничения бесплатного тарифа Render: сервер засыпает через 15 минут без запросов, просыпается около минуты;
-комнаты хранятся в памяти и пропадают при засыпании/перезапуске. Об этом игроков предупреждает плашка «Тестовая версия».
+Нужны Node.js 22+ и npm. Durable Objects на бесплатном тарифе Cloudflare используют SQLite storage; квоты и условия приведены в [документации Cloudflare](https://developers.cloudflare.com/workers/platform/pricing/#durable-objects).
 
-## 1. Репозиторий на GitHub
-1. Зарегистрируйтесь на https://github.com (если ещё нет аккаунта).
-2. Справа вверху **+ → New repository**. Имя, например, `jackal-game`, видимость **Public** (Pages бесплатно — только для публичных). Без README. **Create repository**.
-3. Загрузите файлы проекта. Проще всего из папки `jackal-game` (из архива) в терминале:
+## Локальный запуск
+
+```sh
+npm install
+npm run server
+```
+
+Откройте `http://localhost:8090`. Сервер раздаёт игру и обслуживает онлайн-комнаты в памяти. Для клиента без онлайна можно запустить `python3 -m http.server 8080`.
+
+Клиент нельзя открывать напрямую через `file://`: ES-модулям нужен HTTP-сервер. Команды проекта:
+
+```sh
+npm test
+npm run sim
+```
+
+## Cloudflare Worker
+
+Текущий production Worker: `https://jackal-game-server.telmanhans5.workers.dev`. Repository variable `SERVER_URL` настроена на этот адрес, GitHub Pages опубликован и `/health` отвечает `200`.
+
+1. Создайте аккаунт Cloudflare и войдите локально:
+
+   ```sh
+   npx wrangler login
    ```
-   git init -b main
-   git add -A
-   git commit -m "Шакал"
-   git remote add origin https://github.com/ВАШ_ЛОГИН/jackal-game.git
-   git push -u origin main
+
+2. Запустите Worker локально:
+
+   ```sh
+   npm run dev:cf
    ```
-   (Если проект уже с историей git — только `git remote add …` и `git push -u origin main`.)
 
-## 2. Сервер на Render
-1. Зарегистрируйтесь на https://render.com (удобно — кнопкой «GitHub»). Карта для Free не нужна.
-2. **New + → Blueprint**, выберите репозиторий `jackal-game`. Render прочитает `render.yaml` и предложит сервис `jackal-server` (Free). **Apply**.
-   - Если «Blueprint» не подходит: **New + → Web Service** → репозиторий → Runtime **Node**, Build Command `npm install`, Start Command `npm run server`, Instance Type **Free**, Health Check Path `/health`.
-3. Дождитесь «Live». Адрес будет вида `https://jackal-server.onrender.com` (или с суффиксом, например `https://jackal-server-ab12.onrender.com`) — **скопируйте его**.
-4. Проверка: откройте `АДРЕС/health` — должно быть `{"ok":true,...}`. Можно открыть и просто `АДРЕС` — это та же игра прямо с сервера.
-5. (Необязательно, после шага 3) В Render → сервис → **Environment** задайте `ALLOWED_ORIGINS` = `https://ВАШ_ЛОГИН.github.io`, чтобы сервер принимал запросы только от вашей страницы. По умолчанию `*` — от любой.
+   Wrangler использует `wrangler.toml`, SQLite Durable Object `Room` и CORS для GitHub Pages и Android WebView.
 
-## 3. Адрес сервера для клиента (SERVER_URL)
-1. В репозитории на GitHub: **Settings → Secrets and variables → Actions → вкладка Variables → New repository variable**.
-2. Name: `SERVER_URL`, Value: адрес из шага 2.3 без слэша в конце, например `https://jackal-server.onrender.com`. **Add variable**.
+3. Опубликуйте Worker:
 
-(Без переменной клиент использует адрес по умолчанию из `src/config.js` — `https://jackal-server.onrender.com`; если Render выдал другой, переменная обязательна.)
+   ```sh
+   npm run deploy:cf
+   ```
 
-## 4. Клиент на GitHub Pages
-1. В репозитории: **Settings → Pages → Build and deployment → Source: GitHub Actions**.
-2. **Actions → «Deploy client to GitHub Pages» → Run workflow** (дальше он запускается сам при каждом push в `main`). Workflow прогоняет тесты, подставляет SERVER_URL и публикует сайт.
-3. Через 1–2 минуты игра будет по адресу `https://ВАШ_ЛОГИН.github.io/jackal-game/` (ссылка — в Settings → Pages и в итогах workflow).
+   Скопируйте выданный адрес вида `https://jackal-game-server.<ваш-subdomain>.workers.dev`.
 
-## 5. Проверка
-- Откройте страницу Pages: внизу появится плашка «Тестовая версия… сервер просыпается» с таймером; когда сервер ответит — «Сервер готов».
-- «Играть онлайн» → «Создать игру», откройте ту же страницу на другом устройстве и войдите по коду.
-- Временно указать другой сервер можно параметром `?server=https://…` (запоминается в браузере; вернуть — `?server=default`).
+4. В GitHub откройте **Settings → Secrets and variables → Actions → Variables** и добавьте переменную `SERVER_URL` со скопированным адресом без завершающего `/`.
 
-## Обновления
-Изменили код → `git push`. Render и GitHub Pages обновятся сами.
+5. Запустите workflow **Actions → Deploy client to GitHub Pages → Run workflow**. Workflow подставит `SERVER_URL` в копию `src/config.js` и опубликует клиента. После каждого изменения адреса Worker повторите запуск workflow.
+
+## Android APK
+
+В проекте есть Capacitor-обёртка Android 8+ (API 26+). Для локальной сборки нужны Android Studio/SDK, JDK 21 и Node.js 22+:
+
+```sh
+SERVER_URL=https://jackal-game-server.<ваш-subdomain>.workers.dev npm run build:android
+```
+
+APK: `android/app/build/outputs/apk/debug/app-debug.apk`. Команда `npm run android:aab` готовит release AAB без подписи; для публикации добавьте собственный ключ подписи и настройки Google Play. В GitHub Actions workflow **Android debug APK** создаёт неподписанный debug APK и загружает его как артефакт. Веб и Android используют repository variable `SERVER_URL`; без неё локальная игра работает, а онлайн сообщает, что сервер не настроен.
+
+Кнопка «Назад» сначала закрывает окно или плашку выбора, затем запрашивает подтверждение перед выходом из онлайн-партии. Локальная позиция сохраняется в `localStorage` после каждого действия.
+
+Для временного подключения к другому серверу используйте `?server=https://…`. Значение сохраняется в браузере; `?server=default` сбрасывает его к адресу, встроенному при сборке.
+
+## Хранение комнат и лимиты
+
+Состояние партии и токены хранятся в SQLite Durable Object. Alarm удаляет незаконченные комнаты после 24 часов без активности и законченные — через час. Игрокам отправляется только `publicState`: содержимое закрытых клеток скрыто.
+
+Тариф Cloudflare Free ограничивает число запросов, объём SQLite storage и вычислительное время Durable Objects. SSE-соединения остаются открытыми, пока игроки подключены, и расходуют квоту вычислительного времени. Смотрите актуальные лимиты в [тарифах Cloudflare](https://developers.cloudflare.com/workers/platform/pricing/#durable-objects). Переход на платный тариф для штатного небольшого использования не требуется; не включайте его без отдельного решения.
+
+## Старый вариант Render
+
+`render.yaml` оставлен для тех, у кого уже есть рабочий Render-аккаунт. Основной сценарий проекта — Cloudflare Workers + Durable Objects; Render больше не используется для публичного сайта.

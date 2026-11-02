@@ -272,7 +272,7 @@ test('v0.5.5: по умолчанию 1v1; меню первым предлаг�
   assert.match(V.LOSE_LOCAL_Q, /Текущая партия будет потеряна/);
   const ui = fs.readFileSync(new URL('../src/ui.js', import.meta.url), 'utf8');
   assert.ok(!/start\('2p'\)/.test(ui)); assert.match(ui, /localInProgress\(state\) \|\| confirm\(V\.LOSE_LOCAL_Q\);[^\n]*\n\s*if \(fileConfirmed\) \$\('#file'\)\.click\(\)/, 'вопрос до окна выбора файла');
-  assert.match(ui, /\$\('#menu'\)\.showModal\(\);\n\}/, 'без сессии открывается меню');
+  assert.match(ui, /if \(!\$\('#menu'\)\.open\) \$\('#menu'\)\.showModal\(\);\r?\n\s*placeWakeBanner\(\);\r?\n\}/, 'без сессии открывается меню и плашка размещается в активном диалоге');
 });
 
 test('v0.5.6: открыта плашка и пират не выбран — без подсветки ходов', () => {
@@ -511,21 +511,50 @@ test('v0.5.17: точка команды в журнале — контур 1.5p
   assert.match(rules, /border:1\.5px solid #5a3b1e/);
 });
 
-test('v0.5.18: адрес сервера — тот же сайт, на GitHub Pages / из файла — Render, ?server= важнее', async () => {
+test('v0.5.19: адрес сервера — тот же сайт локально, Pages/file/Capacitor используют default, ?server= важнее', async () => {
   const { serverUrlFor } = await import('../src/config.js');
-  const R = 'https://jackal-server.onrender.com';
+  const worker = 'https://jackal-game-server.example.workers.dev';
   assert.equal(serverUrlFor({ protocol: 'http:', hostname: 'localhost', origin: 'http://localhost:8090' }), '');
   assert.equal(serverUrlFor({ protocol: 'https:', hostname: 'jackal-server.onrender.com' }), '');
-  assert.equal(serverUrlFor({ protocol: 'https:', hostname: 'gennady.github.io' }), R);
-  assert.equal(serverUrlFor({ protocol: 'file:', hostname: '' }), R);
-  assert.equal(serverUrlFor({ protocol: 'https:', hostname: 'gennady.github.io' }, { override: 'http://x:1/' }), 'http://x:1');
+  assert.equal(serverUrlFor({ protocol: 'https:', hostname: 'gennady.github.io' }, { defaultServer: worker }), worker);
+  assert.equal(serverUrlFor({ protocol: 'file:', hostname: '' }, { defaultServer: worker }), worker);
+  assert.equal(serverUrlFor({ protocol: 'capacitor:', hostname: 'localhost' }, { defaultServer: worker }), worker);
+  assert.equal(serverUrlFor({ protocol: 'https:', hostname: 'localhost', origin: 'https://localhost' }, { defaultServer: worker }), worker);
+  assert.equal(serverUrlFor({ protocol: 'https:', hostname: 'gennady.github.io' }, { override: 'http://x:1/', defaultServer: worker }), 'http://x:1');
+  assert.equal(serverUrlFor({ protocol: 'https:', hostname: 'gennady.github.io' }), '');
 });
 
-test('v0.5.18: плашка «Тестовая версия» и заметка в онлайн-меню', () => {
+test('v0.5.19: плашка «Тестовая версия» показывает ограничения Cloudflare', () => {
   const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
-  assert.match(html, /<aside id="wake"[^>]*hidden>/); assert.ok(html.includes('первый запуск может занять около минуты'));
-  assert.ok(html.includes('незаконченные партии не сохраняются')); assert.match(html, /id="freeNote"/);
-  assert.match(V.FREE_NOTE, /^Тестовая версия/); assert.equal(V.wakeStatus('wait', 75), 'Будим сервер… 1:15');
+  assert.match(html, /<aside id="wake"[^>]*hidden>/); assert.ok(html.includes('Cloudflare Workers'));
+  assert.ok(html.includes('через 24 часа')); assert.match(html, /id="freeNote"/);
+  assert.match(V.FREE_NOTE, /^Тестовая версия/); assert.equal(V.wakeStatus('wait', 75), 'Проверяем сервер… 1:15');
   const ui = fs.readFileSync(new URL('../src/ui.js', import.meta.url), 'utf8');
-  assert.match(ui, /Net\.wake\(/); assert.match(ui, /await needServer\(\); if \(!goLocal\(\)\) return; const sess = await Net\.create/);
+  assert.match(ui, /SERVER_CONFIGURED/); assert.match(ui, /Net\.wake\(/); assert.match(ui, /await needServer\(\); if \(!goLocal\(\)\) return; const sess = await Net\.create/);
+});
+
+test('v0.5.19: Android back сначала закрывает диалоги и плашку, выход из онлайна подтверждается', () => {
+  assert.equal(V.androidBackAction({ dialog: 'online', plate: true, online: true }), 'close-online');
+  assert.equal(V.androidBackAction({ dialog: 'menu', plate: true }), 'close-menu');
+  assert.equal(V.androidBackAction({ plate: true, online: true }), 'close-plate');
+  assert.equal(V.androidBackAction({ online: true }), 'confirm-online-leave');
+  assert.equal(V.androidBackAction(), 'minimize');
+  const ui = fs.readFileSync(new URL('../src/ui.js', import.meta.url), 'utf8');
+  assert.match(ui, /jackal:backbutton/); assert.match(ui, /confirm\(LEAVE_Q\).*#leaveBtn/);
+});
+
+test('v0.5.19: клетки поля доступны с клавиатуры и имеют подписи координат', () => {
+  const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  const ui = fs.readFileSync(new URL('../src/ui.js', import.meta.url), 'utf8');
+  const css = fs.readFileSync(new URL('../style.css', import.meta.url), 'utf8');
+  assert.match(html, /id="board" aria-label="Игровое поле/);
+  assert.match(ui, /document\.createElement\('button'\); c\.type = 'button'; c\.className = 'cell'/);
+  assert.match(ui, /столбец \$\{x \+ 1\}, ряд \$\{y \+ 1\}/);
+  assert.match(ui, /ArrowUp: \[0, -1\].*ArrowDown: \[0, 1\].*ArrowLeft: \[-1, 0\].*ArrowRight: \[1, 0\]/);
+  assert.match(css, /\.cell:focus-visible\{outline:3px solid #ffd700/);
+});
+
+test('v0.5.19: атрибут hidden работает и у кнопок внутри диалогов', () => {
+  const css = fs.readFileSync(new URL('../style.css', import.meta.url), 'utf8');
+  assert.match(css, /\[hidden\]\{display:none!important\}/);
 });
