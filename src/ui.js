@@ -4,10 +4,12 @@ import * as Net from './net.js';
 import { stateMessage } from './bluetooth-protocol.js';
 import { IS_REMOTE, SERVER_CONFIGURED } from './config.js';
 import { ASSETS, ARROW_GLYPH, ROLE_BADGE, tileImg, pirateImg, pieceImg, shipImg, coinImg, treasureImg, hlImg } from './assets.js';
-const tileName = t => !t.open ? 'закрытая клетка' : t.kind === 'arrow' ? 'стрелка ' + t.dirs.map(d => ARROW_GLYPH[d.join(',')]).join('') : (t.kind === 'plane' && t.used ? 'пусто' : ASSETS[t.kind]?.label ?? t.kind) + (t.coins ? `, монет: ${t.coins}` : '') + (t.treasure ? ', сокровище (3 монеты)' : '');
 const $ = s => document.querySelector(s);
 let plate = null; // плашка выбора пирата: { x, y, pids }
 let state = null, sel = null, withCoin = false, notice = '';
+const boardView = { scale: 1, minScale: .3, maxScale: 3, x: 0, y: 0 };
+const pointers = new Map();
+let gesture = null, longPressTimer = null, suppressCellClickUntil = 0;
 // Кем играет это устройство: 'all' — hot-seat, 0/1 — «я играю за игрока 1/2» (файловый мультиплеер).
 let me = localStorage.getItem('jackal-me') ?? 'all';
 // Онлайн: net = { sess: {code, token, player}, connected, opponent, stop } или null.
@@ -25,14 +27,101 @@ function tileHTML(t) {
   if (t.kind === 'arrow' || t.kind === 'cannon') {
     const r = G.tileRotation(t), glyph = t.dirs.map(d => ARROW_GLYPH[d.join(',')]).join('');
     h = r == null ? `<span class="arrows">${glyph}</span>` : pic(tileImg(t), glyph, 'tile', r);
-  } else h = pic(tileImg(t), ASSETS[t.kind]?.emoji ?? '', 'tile');
-  const lab = t.kind === 'arrow' ? '' : (t.kind === 'plane' && t.used ? 'пусто' : ASSETS[t.kind]?.label ?? t.kind);
-  if (lab && !tileImg(t)) h += `<small>${lab}</small>`; // подпись только без картинки
+  } else h = pic(tileImg(t), ASSETS[t.kind]?.emoji ?? '', `tile${t.kind === 'plane' && t.used ? ' plane-used' : ''}`);
+  const details = V.tileDetails(t);
+  h += `<small class="tile-label">${details.name.toLocaleLowerCase('ru-RU')}</small>`;
+  if (t.kind === 'plane' && t.used) h += '<b class="plane-used-mark" aria-hidden="true">×</b>';
   if (t.coins) h += `<b class="coins">${pic(coinImg, '🪙', 'ci')}${t.coins}</b>`;
   if (t.treasure) h += `<b class="treasure" title="сокровище">${pic(treasureImg, '💰', 'ti')}${t.treasure > 1 ? t.treasure : ''}</b>`;
   return h;
 }
 const myTurn = () => net ? !state.over && G.controllerOf(state) === net.sess.player : me === 'all' || G.controllerOf(state) === +me;
+
+function viewportSize() { const v = $('#boardViewport'); return { v, w: v.clientWidth, h: v.clientHeight, bw: $('#board').offsetWidth, bh: $('#board').offsetHeight }; }
+function clampBoardView() {
+  const { w, h, bw, bh } = viewportSize(); if (!w || !h || !bw || !bh) return;
+  boardView.scale = Math.max(boardView.minScale, Math.min(boardView.maxScale, boardView.scale));
+  const sw = bw * boardView.scale, sh = bh * boardView.scale;
+  boardView.x = sw <= w ? (w - sw) / 2 : Math.max(w - sw, Math.min(0, boardView.x));
+  boardView.y = sh <= h ? (h - sh) / 2 : Math.max(h - sh, Math.min(0, boardView.y));
+  const b = $('#board'); b.style.transform = `translate3d(${boardView.x}px,${boardView.y}px,0) scale(${boardView.scale})`;
+  $('#zoomLevel').value = `${Math.round(boardView.scale * 100)}%`;
+  $('#zoomOut').disabled = boardView.scale <= boardView.minScale + .001;
+  $('#zoomIn').disabled = boardView.scale >= boardView.maxScale - .001;
+}
+function fitBoard() {
+  const { w, h, bw, bh } = viewportSize(); if (!w || !h || !bw || !bh) return;
+  const fit = Math.min(w / bw, h / bh, 1);
+  boardView.minScale = Math.max(.2, fit); boardView.scale = fit;
+  boardView.x = (w - bw * fit) / 2; boardView.y = (h - bh * fit) / 2;
+  clampBoardView();
+}
+function zoomBoard(scale, focusX, focusY) {
+  const { v } = viewportSize(), r = v.getBoundingClientRect();
+  const fx = focusX == null ? r.width / 2 : focusX - r.left, fy = focusY == null ? r.height / 2 : focusY - r.top;
+  const old = boardView.scale, next = Math.max(boardView.minScale, Math.min(boardView.maxScale, scale));
+  boardView.x = fx - ((fx - boardView.x) / old) * next;
+  boardView.y = fy - ((fy - boardView.y) / old) * next;
+  boardView.scale = next; clampBoardView();
+}
+function centerBoardCell(x, y) {
+  const cell = $(`#board [data-cell="${x},${y}"]`); if (!cell) return;
+  const v = $('#boardViewport').getBoundingClientRect(), c = cell.getBoundingClientRect();
+  boardView.x += v.left + v.width / 2 - (c.left + c.width / 2);
+  boardView.y += v.top + v.height / 2 - (c.top + c.height / 2);
+  clampBoardView();
+}
+function showTileInfoAt(x, y) {
+  const info = $('#tileInfo'), tile = state && G.tileAt(state, x, y);
+  if (!tile?.open) { info.hidden = true; info.textContent = ''; return; }
+  const { name, rule } = V.tileDetails(tile);
+  info.textContent = `${name}. ${rule}`; info.hidden = false;
+}
+function setupBoardNavigation() {
+  const v = $('#boardViewport');
+  $('#zoomIn').onclick = () => zoomBoard(boardView.scale * 1.25);
+  $('#zoomOut').onclick = () => zoomBoard(boardView.scale / 1.25);
+  $('#zoomFit').onclick = fitBoard;
+  v.addEventListener('wheel', e => { e.preventDefault(); zoomBoard(boardView.scale * (e.deltaY < 0 ? 1.15 : 1 / 1.15), e.clientX, e.clientY); }, { passive: false });
+  v.addEventListener('pointerdown', e => {
+    const cell = e.target.closest?.('.cell'), key = cell?.dataset.cell;
+    clearTimeout(longPressTimer); longPressTimer = null;
+    if (key && state && G.tileAt(state, ...key.split(',').map(Number))?.open) {
+      longPressTimer = setTimeout(() => { showTileInfoAt(...key.split(',').map(Number)); suppressCellClickUntil = Date.now() + 400; if (gesture) gesture.longPressed = true; }, 520);
+    }
+    v.setPointerCapture(e.pointerId); pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.size === 1) gesture = { type: 'pan', startX: e.clientX, startY: e.clientY, x: boardView.x, y: boardView.y, moved: false };
+    else if (pointers.size === 2) {
+      clearTimeout(longPressTimer); longPressTimer = null;
+      const [a, b] = [...pointers.values()], r = v.getBoundingClientRect();
+      gesture = { type: 'pinch', distance: Math.hypot(a.x - b.x, a.y - b.y), scale: boardView.scale, x: boardView.x, y: boardView.y, midX: (a.x + b.x) / 2 - r.left, midY: (a.y + b.y) / 2 - r.top, moved: false };
+    }
+  });
+  v.addEventListener('pointermove', e => {
+    if (!pointers.has(e.pointerId) || !gesture) return;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (Math.hypot(e.clientX - gesture.startX, e.clientY - gesture.startY) > 8 || gesture.type === 'pinch') { clearTimeout(longPressTimer); longPressTimer = null; }
+    if (gesture.type === 'pinch' && pointers.size >= 2) {
+      const [a, b] = [...pointers.values()], d = Math.max(1, Math.hypot(a.x - b.x, a.y - b.y));
+      const r = v.getBoundingClientRect(), mx = (a.x + b.x) / 2 - r.left, my = (a.y + b.y) / 2 - r.top, next = Math.max(boardView.minScale, Math.min(boardView.maxScale, gesture.scale * d / Math.max(1, gesture.distance)));
+      const ax = (gesture.midX - gesture.x) / gesture.scale, ay = (gesture.midY - gesture.y) / gesture.scale;
+      boardView.scale = next; boardView.x = mx - ax * next; boardView.y = my - ay * next; gesture.moved = true; clampBoardView();
+    } else if (gesture.type === 'pan' && pointers.size === 1) {
+      if (Math.hypot(e.clientX - gesture.startX, e.clientY - gesture.startY) > 4) gesture.moved = true;
+      if (gesture.moved) { boardView.x = gesture.x + e.clientX - gesture.startX; boardView.y = gesture.y + e.clientY - gesture.startY; clampBoardView(); }
+    }
+  });
+  const pointerEnd = e => {
+    clearTimeout(longPressTimer); longPressTimer = null;
+    pointers.delete(e.pointerId);
+    if (gesture?.moved || gesture?.longPressed) suppressCellClickUntil = Date.now() + 350;
+    if (pointers.size === 1) { const [p] = pointers.values(); gesture = { type: 'pan', startX: p.x, startY: p.y, x: boardView.x, y: boardView.y, moved: false }; }
+    else gesture = null;
+  };
+  v.addEventListener('pointerup', pointerEnd); v.addEventListener('pointercancel', pointerEnd);
+  const ro = new ResizeObserver(() => fitBoard()); ro.observe(v);
+  requestAnimationFrame(fitBoard);
+}
 
 function render() {
   const s = state, moves = myTurn() ? G.classifyMoves(G.publicState(s)) : []; // подсветка не выдаёт содержимое закрытых клеток
@@ -40,8 +129,8 @@ function render() {
   const b = $('#board'), focusedCell = b.contains(document.activeElement) ? document.activeElement.dataset.cell : null; b.innerHTML = '';
   for (let y = 0; y < G.N; y++) for (let x = 0; x < G.N; x++) {
     const c = document.createElement('button'); c.type = 'button'; c.className = 'cell'; c.dataset.cell = `${x},${y}`; c.style.gridArea = `${y + 1} / ${x + 1}`; // явное место: плашка поверх клеток не сдвигает их
-    const t = G.tileAt(s, x, y);
-    if (t) { c.classList.add(t.open ? 'open' : 'closed', 'k-' + t.kind); c.innerHTML = tileHTML(t); const name = tileName(t); c.title = name; c.setAttribute('aria-label', name); } else c.classList.add('sea');
+    const t = G.tileAt(s, x, y), details = t ? V.tileDetails(t) : null;
+    if (t) { c.classList.add(t.open ? 'open' : 'closed', 'k-' + t.kind); if (t.used) c.classList.add('used'); c.innerHTML = tileHTML(t); c.title = `${details.name}. ${details.rule}`; } else c.classList.add('sea');
     const sh = G.shipAt(s, x, y);
     if (sh >= 0) { c.classList.add('ship'); c.style.setProperty('--team', G.TEAMS[sh].color); c.insertAdjacentHTML('afterbegin', pic(shipImg(sh), '⛵', 'tile')); }
     const ps = s.pirates.filter(p => p.alive && p.x === x && p.y === y);
@@ -57,7 +146,8 @@ function render() {
     const here = targets.filter(m => m.x === x && m.y === y);
     if (here.length) { const k = V.hlKind(here); c.classList.add('target', 'hl-' + k); c.insertAdjacentHTML('beforeend', pic(hlImg(k), '', 'hl')); }
     if (targets.length && V.coinHintAt(moves, x, y, { sel, withCoin })) { c.classList.add('hl-hint'); c.insertAdjacentHTML('beforeend', pic(hlImg('coin'), '', 'hl hint')); }
-    const cellNames = [t ? tileName(t) : 'Море', sh >= 0 ? `корабль ${G.TEAMS[sh].name.toLowerCase()}` : '', ...ps.map(p => G.pieceName(s, p))].filter(Boolean);
+    const tileLabel = t ? `${details.name}${t.open ? `. ${details.rule}` : ''}` : 'Море';
+    const cellNames = [tileLabel, sh >= 0 ? `корабль ${G.TEAMS[sh].name.toLowerCase()}` : '', ...ps.map(p => G.pieceName(s, p))].filter(Boolean);
     c.setAttribute('aria-label', `${cellNames.join(', ')}, столбец ${x + 1}, ряд ${y + 1}`);
     c.onclick = () => click(x, y, targets);
     c.onkeydown = e => {
@@ -98,7 +188,7 @@ function render() {
   renderBanner();
   if (!net) localStorage.setItem('jackal-save', G.serialize(s));
 }
-function choose(pid) { sel = pid; const c = state.pirates[pid].carry; withCoin = c === G.TREASURE_VALUE ? 'T' : !!c; plate = null; render(); }
+function choose(pid) { sel = pid; const p = state.pirates[pid], c = p.carry; withCoin = c === G.TREASURE_VALUE ? 'T' : !!c; plate = null; render(); requestAnimationFrame(() => centerBoardCell(p.x, p.y)); }
 function renderCrew(s, moves) {
   const can = new Set(moves.map(m => m.pid)), el = $('#crew');
   const tok = (t, color) => { const p = s.pirates[t.pid];
@@ -279,8 +369,10 @@ async function joinBluetooth(address) {
 }
 
 function click(x, y, targets) {
+  if (Date.now() < suppressCellClickUntil) return;
   const hit = targets.find(m => m.x === x && m.y === y);
   if (hit) { const { kind, ...mv } = hit; return play(mv); }
+  showTileInfoAt(x, y);
   if (sel === 'rum') { sel = null; return render(); }
   if (!myTurn()) { const n = V.turnNotice(state, x, y); if (n) { notice = n; render(); } return; }
   if (state.pending) { const p = state.pirates[state.pending.pid]; if (state.pending.type === 'lighthouse' || state.pending.type === 'quake' || !(p.x === x && p.y === y)) { notice = V.blockedNotice(state); render(); } return; }
@@ -372,7 +464,7 @@ function renderEmpty() {
   state = null; sel = null; plate = null; const b = $('#board'); b.innerHTML = '';
   for (let y = 0; y < G.N; y++) for (let x = 0; x < G.N; x++) { const c = document.createElement('button'); c.type = 'button'; c.tabIndex = -1; c.disabled = true; c.className = 'cell ' + (V.isLandCell(x, y) ? 'closed' : 'sea'); c.style.gridArea = `${y + 1} / ${x + 1}`; c.setAttribute('aria-label', `${V.isLandCell(x, y) ? 'Закрытая клетка' : 'Море'}, столбец ${x + 1}, ряд ${y + 1}`); b.append(c); }
   for (const id of ['#crew', '#banner', '#youAre']) $(id).hidden = true;
-  $('#score').textContent = ''; $('#status').textContent = ''; $('#turnText').textContent = ''; $('#turnPrefix').textContent = ''; $('#turnDot').hidden = true; $('#log').textContent = '';
+  $('#score').textContent = ''; $('#status').textContent = ''; $('#tileInfo').hidden = true; $('#tileInfo').textContent = ''; $('#turnText').textContent = ''; $('#turnPrefix').textContent = ''; $('#turnDot').hidden = true; $('#log').textContent = '';
   $('#me').closest('label').hidden = false; $('#banner').hidden = true;
 }
 // Главное меню; сохранённая локальная партия — только по кнопке «Продолжить».
@@ -393,5 +485,6 @@ $('#nearby').addEventListener('close', () => { placeWakeBanner(); if (!state && 
 $('#nearbyBtn').hidden = !bluetooth();
 const sess = Net.saved();
 if (IS_REMOTE || sess) wakeServer(); // клиент на GitHub Pages — сразу будим сервер, плашка видна с первого экрана
+setupBoardNavigation();
 if (sess && location.protocol.startsWith('http')) goOnline(sess);
 else showMenu(); // новая вкладка: меню над пустым полем, старую партию не восстанавливаем сами

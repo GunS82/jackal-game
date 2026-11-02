@@ -3,6 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import * as G from '../src/game.js';
+import * as V from '../src/view.js';
 const pos = o => G.loadState(o);
 const mv = (s, f) => { const m = G.legalMoves(s).find(f); assert.ok(m, 'ход не найден'); return G.applyMove(s, m); };
 const at = (s, p) => [s.pirates[p].x, s.pirates[p].y];
@@ -172,7 +173,6 @@ test('новые позиции для Тестировщика загружаю
   for (const f of fs.readdirSync('test-positions').filter(f => f.startsWith('v04-'))) { const s = G.loadState(fs.readFileSync('test-positions/' + f, 'utf8')); assert.ok(G.legalMoves(s).length, f); }
 });
 
-import * as V from '../src/view.js';
 test('интерфейс: маяк/землетрясение/пещера — заголовок и цели; тоггл груза с сокровищем; кнопка рома', () => {
   let s = pos({ mode: '1v1', tiles: { '6,10': { kind: 'lighthouse', open: false }, '2,2': { open: false } }, pirates: [{ team: 0, x: 6, y: 11 }, { team: 2, onShip: true }] });
   s = mv(s, m => m.x === 6 && m.y === 10);
@@ -192,4 +192,51 @@ test('интерфейс: маяк/землетрясение/пещера — �
   const rm = G.legalMoves(r); assert.equal(V.buttons(r, rm, {}).rum.disabled, false); assert.deepEqual(V.targets(rm, { sel: 'rum' }).map(m => [m.x, m.y]), [[6, 6]]);
   const gr = pos({ mode: '1v1', grass: 2, pirates: [{ team: 0, x: 5, y: 5 }, { team: 2, onShip: true }] });
   assert.match(V.headerText(gr), /игрок 2 — трава/);
+});
+
+test('v0.5.20: names and short rules cover revealed tiles and used airplane', () => {
+  const empty = V.tileDetails({ kind: 'empty', open: true, coins: 0 });
+  assert.equal(empty.name, 'Пустая клетка'); assert.match(empty.rule, /Особого эффекта нет/);
+  const plane = V.tileDetails({ kind: 'plane', open: true, used: false, coins: 0 });
+  assert.equal(plane.name, 'Самолёт'); assert.match(plane.rule, /Одноразовый перенос/);
+  const used = V.tileDetails({ kind: 'plane', open: true, used: true, coins: 0 });
+  assert.equal(used.name, 'Самолёт использован'); assert.match(used.rule, /больше нельзя улететь/);
+  assert.deepEqual(V.tileDetails({ kind: 'plane', open: false }), { name: 'Закрытая клетка', rule: 'Клетка закрыта. Её содержимое станет видно, когда пират на неё наступит.' });
+});
+
+test('v0.5.20: every deck kind has a readable hint and used plane remains visible to both players', async () => {
+  const A = await import('../src/assets.js');
+  for (const kind of G.KINDS) {
+    const runtimeKind = G.ARROWS[kind] ? 'arrow' : kind;
+    const details = V.tileDetails({ kind: runtimeKind, open: true, coins: kind.startsWith('chest') ? 1 : 0 });
+    assert.ok(details.name && details.name !== runtimeKind, `${kind} has a player-facing name`);
+    assert.ok(details.rule.length > 20, `${kind} has a concise rule`);
+  }
+  const state = pos({ tiles: { '3,3': { kind: 'plane', open: true, used: true } }, pirates: [{ team: 0, x: 3, y: 3 }] });
+  assert.equal(A.tileImg(G.tileAt(state, 3, 3)), 'assets/tiles/plane.svg');
+  assert.equal(G.publicState(state).tiles['3,3'].used, true);
+});
+
+test('v0.5.20: opening a tile and using a plane are recorded in the log; the plane is one-use', () => {
+  let s = pos({ tiles: { '6,10': { kind: 'empty', open: false } }, pirates: [{ team: 0, x: 6, y: 11 }] });
+  s = mv(s, m => m.x === 6 && m.y === 10);
+  assert.ok(s.log.some(line => line === 'Открыта клетка: Пустая клетка'));
+
+  s = pos({ tiles: { '3,3': { kind: 'plane', open: true } }, pirates: [{ team: 0, x: 3, y: 3 }] });
+  s = mv(s, m => m.via === 'plane' && m.x === 6 && m.y === 12);
+  assert.equal(G.tileAt(s, 3, 3).used, true);
+  assert.ok(s.log.some(line => line.startsWith('Самолёт использован:')));
+  const usedPlane = pos({ tiles: { '3,3': { kind: 'plane', open: true, used: true } }, pirates: [{ team: 0, x: 3, y: 3 }] });
+  assert.ok(G.legalMoves(usedPlane).every(m => m.via !== 'plane'));
+});
+
+test('v0.5.20: board UI includes built-in zoom, pan, and mobile tile help', () => {
+  const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  const ui = fs.readFileSync(new URL('../src/ui.js', import.meta.url), 'utf8');
+  const css = fs.readFileSync(new URL('../style.css', import.meta.url), 'utf8');
+  assert.match(html, /id="boardViewport"/); assert.match(html, /id="zoomIn"/); assert.match(html, /id="zoomOut"/); assert.match(html, /id="zoomFit"/); assert.match(html, /id="tileInfo"/);
+  assert.match(ui, /addEventListener\('wheel'/); assert.match(ui, /addEventListener\('pointermove'/); assert.match(ui, /centerBoardCell/); assert.match(ui, /showTileInfoAt/);
+  assert.match(ui, /details\.name.*details\.rule/);
+  assert.match(css, /grid-template-columns:repeat\(13,42px\)/); assert.match(css, /touch-action:none/); assert.match(css, /\.cell\.used\.k-plane/);
+  assert.ok(fs.existsSync(new URL('../rules.html', import.meta.url)), 'player rules page is included in the source tree');
 });

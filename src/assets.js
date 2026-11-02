@@ -49,7 +49,6 @@ const ARROW_BASE = ['arrow1', 'arrow1d', 'arrow2', 'arrow2d', 'arrow3', 'arrow4'
 export function tileImg(t) {
   if (!t.open) return 'assets/tiles/closed.svg';
   if (t.kind === 'arrow') return ARROW_BASE.includes(t.arrow) ? `assets/tiles/${t.arrow}.svg` : null;
-  if (t.kind === 'plane' && t.used) return 'assets/tiles/empty.svg';
   return ASSETS[t.kind]?.img ? `assets/tiles/${t.kind}.svg` : null;
 }
 export const pirateImg = team => `assets/pieces/pirate-${TEAM_COLOR[team]}.svg`;

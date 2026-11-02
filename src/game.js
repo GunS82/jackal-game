@@ -71,6 +71,19 @@ export function newGame({ mode = '2p', seed = Date.now(), options = {} } = {}) {
 }
 
 export const tileAt = (s, x, y) => s.tiles[key(x, y)];
+const TILE_LABELS = {
+  empty: 'Пустая клетка', arrow: 'Стрелка', horse: 'Конь', spin2: 'Вертушка 2', spin3: 'Вертушка 3', spin4: 'Вертушка 4', spin5: 'Вертушка 5',
+  ice: 'Лёд', trap: 'Капкан', croc: 'Крокодил', ogre: 'Людоед', fort: 'Крепость', abor: 'Аборигенка',
+  chest1: 'Сундук I', chest2: 'Сундук II', chest3: 'Сундук III', chest4: 'Сундук IV', chest5: 'Сундук V',
+  plane: 'Самолёт', balloon: 'Воздушный шар', cannon: 'Пушка', barrel: 'Бочонок', rum1: 'Ром I', rum2: 'Ром II', rum3: 'Ром III',
+  cave: 'Пещера', quake: 'Землетрясение', jungle: 'Джунгли', grass: 'Горящая трава', caramba: 'Каррамба', lighthouse: 'Маяк',
+  bengunn: 'Бен Ганн', missionary: 'Миссионер', friday: 'Пятница', galleon: 'Галеон',
+};
+export function tileName(t) {
+  if (!t?.open) return 'Закрытая клетка';
+  if (t.kind === 'plane' && t.used) return 'Самолёт использован';
+  return TILE_LABELS[t.kind] ?? t.kind;
+}
 export const shipAt = (s, x, y) => s.ships.findIndex((sh, i) => sh.x === x && sh.y === y && activeTeams(s.mode).includes(i));
 export const cloneState = s => JSON.parse(JSON.stringify(s));
 export const onShip = (s, p) => p.alive && s.ships[p.team].x === p.x && s.ships[p.team].y === p.y;
@@ -258,6 +271,7 @@ function walk(s, p, x, y, via, v) {
     const t = tileAt(s, x, y);
     if (t.kind === 'croc' && t.open && inChain && s.options?.houseCrocDeath) { s.lost += v; die(s, p, 'цепочка привела на открытого крокодила'); return; }
     const fresh = reveal(s, t);
+    if (fresh) msg(s, `Открыта клетка: ${tileName(t)}`);
     const next = (nx, ny) => { delta = [nx - x, ny - y]; from = [x, y]; x = nx; y = ny; };
     if (t.kind === 'arrow' && t.dirs.length === 1) { next(x + t.dirs[0][0], y + t.dirs[0][1]); continue; }
     if (t.kind === 'ice') { next(x + delta[0], y + delta[1]); continue; }
@@ -326,7 +340,7 @@ export function applyMove(s0, m, { asPlayer = null } = {}) {
   }
   if (m.type === 'reveal') {
     const t = tileAt(s, m.x, m.y); reveal(s, t); if (['bengunn', 'friday', 'missionary', 'quake', 'grass', 'caramba'].includes(t.kind) || RUM[t.kind]) t.lit = true;
-    msg(s, `🗼 открыта клетка ${m.x},${m.y}`);
+    msg(s, `Открыта клетка: ${tileName(t)}`);
     if (--s.pending.left <= 0 || !Object.values(s.tiles).some(c => !c.open)) s.pending = null;
     endTurn(s); return s;
   }
@@ -348,7 +362,7 @@ export function applyMove(s0, m, { asPlayer = null } = {}) {
     if (m.rum) { s.rum[team]--; p.trapped = false; msg(s, `🍾 ${pname(s, p)} выпил ром и выбрался`); }
     const cont = !!s.pending;
     let v = val(m.coin, m.treasure);
-    if (isIsland(p.x, p.y) && !cont) { const t = tileAt(s, p.x, p.y); if (t.kind === 'plane' && !t.used && m.via === 'plane') t.used = true;
+    if (isIsland(p.x, p.y) && !cont) { const t = tileAt(s, p.x, p.y); if (t.kind === 'plane' && !t.used && m.via === 'plane') { t.used = true; msg(s, 'Самолёт использован: повторный перенос отсюда невозможен'); }
       if (p.carry) { const c = p.carry === true ? 1 : p.carry; p.carry = 0; if (!m.coin) put(t, c); else v = c; }
       else if (m.treasure) t.treasure--; else if (m.coin) t.coins--; }
     if (m.via === 'spin') walk(s, p, p.x, p.y, 'spin', v);

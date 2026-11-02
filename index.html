@@ -4,7 +4,11 @@
 <header><h1><a class="game-brand" href="./">🏴‍☠️ Шакал</a></h1><a class="rules-link" href="rules.html">📖 Правила и как играть</a><div id="turn"><span id="turnDot" class="dot"></span> <span id="turnPrefix">Ход:</span> <span id="turnText"></span></div></header>
 <div id="banner" class="banner" hidden role="status" aria-live="polite"></div>
 <div id="crew" class="crew" aria-label="Пираты обеих сторон"></div>
-<main id="board" aria-label="Игровое поле, 13 на 13 клеток"></main>
+<section class="board-shell" aria-label="Игровое поле">
+<div class="board-toolbar" role="group" aria-label="Масштаб поля"><button id="zoomIn" type="button" aria-label="Увеличить поле">+</button><button id="zoomOut" type="button" aria-label="Уменьшить поле">−</button><button id="zoomFit" type="button">Вписать</button><output id="zoomLevel" aria-live="polite">100%</output></div>
+<div id="boardViewport" class="board-viewport" aria-label="Область просмотра игрового поля"><main id="board" aria-label="Игровое поле, 13 на 13 клеток"></main></div>
+<output id="tileInfo" class="tile-info" aria-live="polite" hidden></output>
+</section>
 <div id="status" role="status" aria-live="polite"></div>
 <div id="score"></div>
 <nav><button id="shipBtn">⛵ Двигать корабль</button><button id="coinBtn">🪙 Без монеты</button><button id="reviveBtn">❤ Воскресить</button><button id="rumBtn">🍾 Дать ром</button>
