@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Подробное руководство по веб-версии игры «Шакал»: цель, ход, обозначения клеток, персонажи и правила.">
+  <title>Как играть в «Шакал» — правила и обозначения</title>
+  <link rel="icon" href="favicon.svg">
+  <link rel="stylesheet" href="rules.css">
+</head>
+<body>
+  <header class="guide-topbar">
+    <a class="brand" href="./" aria-label="Шакал — перейти к игре"><span>🏴‍☠️</span> Шакал</a>
+    <nav aria-label="Навигация по странице"><a href="#quick">Быстрый старт</a><a href="#tiles">Клетки острова</a><a href="#characters">Персонажи</a></nav>
+    <a class="top-play" href="./">Перейти к игре <span aria-hidden="true">↗</span></a>
+  </header>
+
+  <main>
+    <section class="hero" aria-labelledby="page-title">
+      <div class="hero-copy">
+        <p class="eyebrow">Полевой справочник экипажа</p>
+        <h1 id="page-title">Остров открыт.<br><em>Что дальше?</em></h1>
+        <p class="lead">Большое руководство по текущей веб-версии «Шакала»: как ходить, читать поле, искать сокровища и возвращать их на корабль.</p>
+        <div class="hero-actions"><a class="button primary" href="#quick">Начать с правил <span>↓</span></a><a class="button ghost" href="./">Открыть игру <span>↗</span></a></div>
+        <p class="edition-note">Правила описывают именно эту цифровую реализацию. В настольных изданиях некоторые детали могут отличаться.</p>
+      </div>
+      <div class="hero-map" aria-label="Схематическая карта острова">
+        <div class="map-rim"><div class="map-island">
+          <span class="map-piece ship white">⛵</span><span class="map-piece ship black">⛵</span>
+          <span class="map-tile t-chest">🧰</span><span class="map-tile t-arrow">↗</span><span class="map-tile t-cave">◉</span>
+          <span class="map-tile t-spin">〰</span><span class="map-tile t-galleon">💰</span><span class="map-tile t-fort">♜</span>
+          <span class="map-tile t-palm">♣</span><span class="map-tile t-ice">❄</span><span class="map-tile t-croc">♧</span>
+          <span class="map-coin">●</span><span class="map-coin coin-two">●</span><span class="map-dash">✦</span>
+          <span class="map-compass">N<br>↑</span><span class="map-caption">карта-схема · берег зовёт</span>
+        </div></div>
+      </div>
+      <div class="hero-facts"><div><strong>13 × 13</strong><span>поле с морем</span></div><div><strong>117</strong><span>клеток острова</span></div><div><strong>40</strong><span>монет в партии</span></div><div><strong>21</strong><span>монета для большинства</span></div></div>
+    </section>
+
+    <div class="guide-layout">
+      <aside class="toc"><p class="toc-title">В этом руководстве</p><a href="#quick">01 · Быстрый старт</a><a href="#turn">02 · Как проходит ход</a><a href="#symbols">03 · Значки и поле</a><a href="#cargo">04 · Монеты и бой</a><a href="#tiles">05 · Все клетки острова</a><a href="#characters">06 · Персонажи</a><a href="#modes">07 · Режимы и партии</a><a href="#finish">08 · Конец игры</a><a href="#faq">09 · Частые вопросы</a><a class="toc-play" href="./">⚓ Играть</a></aside>
+
+      <article class="guide-content">
+        <section id="quick" class="guide-section intro-section">
+          <p class="eyebrow">01 · Быстрый старт</p><h2>Сначала — самое важное</h2>
+          <div class="rule-banner"><span class="banner-icon">🏆</span><div><strong>Цель — доставить на корабль больше сокровищ, чем соперник.</strong><p>На острове спрятаны 37 обычных монет и сокровище галеона стоимостью 3 монеты. Как только ваша сторона набирает 21 монету, она выигрывает по большинству.</p></div></div>
+          <div class="steps-grid">
+            <div class="step-card"><b>01</b><h3>Выберите пирата</h3><p>Нажмите на свою фишку на корабле или острове. Если на клетке несколько ваших пиратов, выберите нужного в появившейся плашке.</p></div>
+            <div class="step-card"><b>02</b><h3>Выберите клетку</h3><p>Нажмите на подсвеченную клетку. Закрытая клетка откроется, когда на неё впервые ступит пират. Её эффект часто меняет маршрут.</p></div>
+            <div class="step-card"><b>03</b><h3>Решите, брать ли груз</h3><p>Если под пиратом есть монета или сокровище, переключите кнопку груза. Можно сделать ход с находкой или оставить её на месте.</p></div>
+            <div class="step-card"><b>04</b><h3>Верните добычу</h3><p>Доведите пирата с находкой до своего корабля. Только доставленный груз увеличивает счёт команды.</p></div>
+          </div>
+          <div class="callout"><span>☝️</span><p><strong>Подсказка интерфейса:</strong> игра сама подсвечивает допустимые клетки. Если ход невозможен, такой клетки не будет среди вариантов; не нужно запоминать все исключения наизусть.</p></div>
+        </section>
+
+        <section id="turn" class="guide-section">
+          <p class="eyebrow">02 · Управление</p><h2>Как проходит ход</h2>
+          <p>В свой ход команда выбирает одно основное действие: переместить пирата или передвинуть корабль. Некоторые клетки запускают последовательность — например, просят выбрать направление стрелки, выход из пещеры или клетки маяка. Завершите такой выбор, и ход продолжится автоматически.</p>
+          <div class="two-col">
+            <div class="paper-card"><h3>Пират на острове</h3><ul><li>Обычно он переходит на одну соседнюю клетку — по вертикали, горизонтали или диагонали.</li><li>Нажмите на пирата, затем на подсвеченное место назначения.</li><li>По кнопке груза можно выбрать «Без монеты», «С монетой» или «С сокровищем».</li><li>Если пират уже несёт груз, он может продолжить путь с ним или оставить находку на своей клетке.</li></ul></div>
+            <div class="paper-card"><h3>Пират и корабль</h3><ul><li>С корабля пират высаживается на первую клетку острова перед носом судна.</li><li>Пловец движется по морским клеткам к берегу или к своему кораблю.</li><li>Кнопка «Двигать корабль» сдвигает судно на одну позицию вдоль его края.</li><li>Корабль можно двигать, пока на нём остаётся хотя бы один свой пират. Пираты на борту едут вместе с ним.</li></ul></div>
+          </div>
+          <div class="note-card"><strong>Ход не всегда заканчивается сразу.</strong><p>На стрелке с несколькими выходами, коне, пещере, маяке и землетрясении игра ждёт уточнения. В строке хода написано, что именно нужно выбрать. Ром может быть отдельным бесплатным действием, если команда может дать его персонажу рядом.</p></div>
+          <h3 class="subheading">Что означают подсветки</h3>
+          <div class="legend-row"><span class="legend-chip move-chip">●</span><div><strong>Подсвеченная клетка</strong><p>Туда можно переместиться выбранным способом.</p></div></div>
+          <div class="legend-row"><span class="legend-chip cargo-chip">◉</span><div><strong>Подсказка монеты</strong><p>На клетке можно поднять монету или сокровище, если включить соответствующий режим груза.</p></div></div>
+          <div class="legend-row"><span class="legend-chip danger-chip">×</span><div><strong>Опасный исход</strong><p>Действие может погубить пирата. Подсветка и текст статуса помогают понять риск до выбора.</p></div></div>
+        </section>
+
+        <section id="symbols" class="guide-section">
+          <p class="eyebrow">03 · Чтение поля</p><h2>Значки и обозначения</h2>
+          <div class="symbol-grid">
+            <div class="symbol"><span class="symbol-art"><img src="assets/pieces/ship-white.svg" alt=""></span><div><strong>Корабль</strong><p>Цвет обозначает команду. Попадание на свой корабль доставляет груз; чужой корабль опасен.</p></div></div>
+            <div class="symbol"><span class="symbol-art"><img src="assets/pieces/pirate-white.svg" alt=""></span><div><strong>Пират и номер</strong><p>Обычные пираты помечены номерами 1–3. Значок ×2 или ×3 означает несколько фишек на клетке.</p></div></div>
+            <div class="symbol"><span class="symbol-art"><img src="assets/tiles/closed.svg" alt=""></span><div><strong>Закрытая клетка</strong><p>Её содержимое пока неизвестно. Первый пират, ступивший на неё, открывает и разыгрывает её.</p></div></div>
+            <div class="symbol"><span class="symbol-art"><img src="assets/pieces/coin.svg" alt=""></span><div><strong>Монета</strong><p>Одна единица счёта. Подберите её и довезите до корабля.</p></div></div>
+            <div class="symbol"><span class="symbol-art"><img src="assets/pieces/treasure.svg" alt=""></span><div><strong>Сокровище</strong><p>Стоит три монеты. Ищите его в галеоне.</p></div></div>
+            <div class="symbol"><span class="symbol-art"><img src="assets/tiles/empty.svg" alt=""></span><div><strong>Открытая клетка</strong><p>Клетка уже исследована. На ней могут лежать оставленные монеты или сокровище.</p></div></div>
+          </div>
+          <div class="board-note"><span class="coordinate-mark">13<br>×<br>13</span><p><strong>Остров и море.</strong> Игровое поле — сетка 13 × 13. Остров занимает 11 × 11 клеток, кроме четырёх углов; по краям находится море и стоят корабли. Карта собирается заново для каждой новой партии.</p></div>
+        </section>
+
+        <section id="cargo" class="guide-section">
+          <p class="eyebrow">04 · Добыча и столкновения</p><h2>Монеты, доставка и бой</h2>
+          <div class="cargo-route"><div><span>🧭</span><strong>Найти</strong><small>открыть клетку</small></div><i>→</i><div><span>🪙</span><strong>Поднять</strong><small>выбрать груз</small></div><i>→</i><div><span>🏴‍☠️</span><strong>Донести</strong><small>избежать ловушек</small></div><i>→</i><div><span>⛵</span><strong>Доставить</strong><small>заработать очки</small></div></div>
+          <div class="two-col">
+            <div class="paper-card"><h3>Как работает груз</h3><ul><li>Монета и сокровище подбираются с клетки, когда вы уходите с неё.</li><li>На корабле своего цвета груз прибавляется к счёту. Галеон приносит 3 монеты.</li><li>Погибший пират оставляет груз на острове; если груз теряется в море, он выбывает из игры.</li><li>Нельзя взять груз и зайти с ним в джунгли, крепость или на клетку аборигенки.</li></ul></div>
+            <div class="paper-card"><h3>Столкновение с врагом</h3><ul><li>Обычный пират-боец, вставший на врага, отправляет того на его корабль. Сам пират обычно остаётся на клетке.</li><li>Такой бой не происходит в джунглях; миссионер защищает соседнюю группу.</li><li>На занятую врагом крепость зайти нельзя. Стоящего внутри крепости врага не атаковать.</li><li>Пятница не атакует: при нападении он переходит к команде нападающего.</li></ul></div>
+          </div>
+          <div class="warning-card"><strong>Море — отдельный риск.</strong><p>Обычный ход с острова не позволяет просто шагнуть в воду. Но стрелка, пушка, ледяной занос и другие принудительные перемещения могут вынести пирата в море. Безопасно вернуться можно на свой корабль; вражеский корабль или открытая вода могут закончиться гибелью и потерей груза.</p></div>
+        </section>
+
+        <section id="tiles" class="guide-section tiles-section">
+          <p class="eyebrow">05 · Атлас острова</p><h2>Все клетки острова</h2>
+          <p>Ниже перечислены клетки и эффекты, которые есть в текущей версии. Значок ведёт к картинке из игры; направление стрелок и пушек на поле может быть повёрнуто.</p>
+
+          <h3 class="tile-group-title">Путь и перемещение</h3>
+          <div class="tile-grid">
+            <div class="tile-card"><img src="assets/tiles/empty.svg" alt=""><div><strong>Пустая клетка</strong><p>Ничего особенного не происходит. Можно оставить здесь груз.</p></div></div>
+            <div class="tile-card"><img src="assets/tiles/arrow4.svg" alt=""><div><strong>Стрелка</strong><p>Пират движется по стрелке. Если направлений несколько, выберите одно — это продолжение того же хода.</p></div></div>
+            <div class="tile-card"><img src="assets/tiles/horse.svg" alt=""><div><strong>Конь</strong><p>Скачет как шахматный конь: на две клетки в одну сторону и на одну вбок. Выберите подсвеченную точку приземления.</p></div></div>
+            <div class="tile-card"><img src="assets/tiles/spin3.svg" alt=""><div><strong>Вертушка</strong><p>Останавливает пирата на число ходов, указанное на клетке; каждый свой ход он продвигается по вертушке. Груз остаётся при нём. Пятница проходит за один ход.</p></div></div>
+            <div class="tile-card"><img src="assets/tiles/ice.svg" alt=""><div><strong>Лёд</strong><p>Пират скользит дальше в том же направлении, пока цепочка перемещения не остановится.</p></div></div>
+            <div class="tile-card"><img src="assets/tiles/cannon.svg" alt=""><div><strong>Пушка</strong><p>Выстреливает пирата по направлению ствола через остров прямо в море.</p></div></div>
+            <div class="tile-card"><img src="assets/tiles/cave.svg" alt=""><div><strong>Пещера</strong><p>Выберите другой открытый вход без врагов. Если выхода пока нет, пират ждёт внутри до открытия новой пещеры.</p></div></div>
+            <div class="tile-card"><img src="assets/tiles/plane.svg" alt=""><div><strong>Самолёт</strong><p>Одноразовый перенос: выберите точку на острове или свой корабль. Груз доставится вместе с пиратом.</p></div></div>
+            <div class="tile-card"><img src="assets/tiles/balloon.svg" alt=""><div><strong>Воздушный шар</strong><p>Сразу уносит пирата с грузом на его корабль и доставляет добычу.</p></div></div>
+            <div class="tile-card"><img src="assets/tiles/croc.svg" alt=""><div><strong>Крокодил</strong><p>Срывает перемещение: пират и груз возвращаются к месту, откуда начался этот ход.</p></div></div>
+          </div>
+
+          <h3 class="tile-group-title">Опасности, защита и помощь</h3>
+          <div class="tile-grid">
+            <div class="tile-card"><img src="assets/tiles/ogre.svg" alt=""><div><strong>Людоед</strong><p>Съедает пирата и оставляет его груз на клетке. Пятница не боится людоеда.</p></div></div>
+            <div class="tile-card"><img src="assets/tiles/trap.svg" alt=""><div><strong>Капкан</strong><p>Запирает пирата на месте. Освободить его может союзник, вставший рядом, или ром; Пятница в капкан не попадает.</p></div></div>
+            <div class="tile-card"><img src="assets/tiles/barrel.svg" alt=""><div><strong>Бочонок</strong><p>Пират пропускает ровно один свой ход. Другими пиратами команды можно ходить как обычно.</p></div></div>
+            <div class="tile-card"><img src="assets/tiles/fort.svg" alt=""><div><strong>Крепость</strong><p>Защищает стоящего здесь пирата от нападения. Нельзя войти с грузом или вытеснить врага из занятой крепости.</p></div></div>
+            <div class="tile-card"><img src="assets/tiles/abor.svg" alt=""><div><strong>Аборигенка</strong><p>На клетку нельзя зайти с грузом; занятая врагом клетка защищена. Если у команды меньше трёх бойцов, здесь можно воскресить погибшего бойца.</p></div></div>
+            <div class="tile-card"><img src="assets/tiles/jungle.svg" alt=""><div><strong>Джунгли</strong><p>Внутри не дерутся и могут стоять разные команды. Войти с монетой или сокровищем нельзя.</p></div></div>
+            <div class="tile-card"><img src="assets/tiles/lighthouse.svg" alt=""><div><strong>Маяк</strong><p>Один раз позволяет открыть до четырёх закрытых клеток. Их находки и некоторые эффекты срабатывают при первом посещении.</p></div></div>
+            <div class="tile-card"><img src="assets/tiles/quake.svg" alt=""><div><strong>Землетрясение</strong><p>Выберите две свободные клетки без пиратов и груза — их содержимое поменяется местами.</p></div></div>
+          </div>
+
+          <h3 class="tile-group-title">Сокровища, ром и случайные события</h3>
+          <div class="tile-grid">
+            <div class="tile-card"><img src="assets/tiles/chest3.svg" alt=""><div><strong>Сундук I–V</strong><p>В сундуке столько монет, сколько показывает римская цифра: от одной до пяти.</p></div></div>
+            <div class="tile-card"><img src="assets/tiles/galleon.svg" alt=""><div><strong>Галеон</strong><p>Открывает одно сокровище стоимостью три монеты.</p></div></div>
+            <div class="tile-card"><img src="assets/tiles/rum2.svg" alt=""><div><strong>Ром I–III</strong><p>Даёт команде запас рома. Ромом можно освободить своего пирата из капкана или изменить особого персонажа; действие с персонажем может израсходовать бутылку.</p></div></div>
+            <div class="tile-card"><img src="assets/tiles/grass.svg" alt=""><div><strong>Горящая трава</strong><p>На короткое время меняет управление: каждый игрок в свой ход командует пиратами следующей команды по кругу.</p></div></div>
+            <div class="tile-card"><img src="assets/tiles/caramba.svg" alt=""><div><strong>«Каррамба!»</strong><p>Пират восклицает «Каррамба!». На правила и положение фигур это не влияет.</p></div></div>
+          </div>
+          <div class="callout"><span>🧭</span><p><strong>Цепочки эффектов.</strong> Стрелка, лёд, пушка, крокодил и другие эффекты могут сработать подряд в рамках одного хода. Если принудительное движение приводит туда, куда попасть невозможно, пират погибает; груз остаётся в месте начала хода. Для открытого крокодила есть отдельная опция домашнего правила.</p></div>
+        </section>
+
+        <section id="characters" class="guide-section">
+          <p class="eyebrow">06 · Особые фишки</p><h2>Персонажи</h2>
+          <p>Персонажей можно встретить на острове. При первом открытии их клетка присоединяет нового персонажа к команде пирата, который её открыл.</p>
+          <div class="character-list">
+            <div class="character-card"><img src="assets/pieces/bengunn-white.svg" alt=""><div><p class="character-kicker">Боец</p><h3>Бен Ганн</h3><p>Сражается как обычный пират. Если погибнет, его можно воскресить на клетке аборигенки, пока в команде меньше трёх бойцов.</p></div></div>
+            <div class="character-card"><img src="assets/pieces/friday-white.svg" alt=""><div><p class="character-kicker">Непредсказуемый союзник</p><h3>Пятница</h3><p>Не атакует и сам не попадает в капкан; людоед ему не страшен, а вертушку он проходит за один ход. Если на него напасть, он переходит к нападавшему. Встреча с миссионером выводит обоих из партии. Выпив ром, Пятница уходит, а оставшаяся порция рома достаётся команде.</p></div></div>
+            <div class="character-card"><img src="assets/pieces/missionary-white.svg" alt=""><div><p class="character-kicker">Защитник</p><h3>Миссионер</h3><p>Не носит добычу и не сражается. Пираты на одной клетке с миссионером не могут нападать в этот ход; враг также не вытеснит его с клетки. Обычный пират может встать на клетку, занятую только миссионером. Выпив ром, миссионер становится бойцом — экс-миссионером. Встреча с Пятницей выводит обоих из партии.</p></div></div>
+          </div>
+        </section>
+
+        <section id="modes" class="guide-section">
+          <p class="eyebrow">07 · Перед началом партии</p><h2>Режимы и способы играть</h2>
+          <div class="mode-grid">
+            <div class="mode-card mode-featured"><span class="mode-tag">По умолчанию</span><h3>1 на 1</h3><p>Белые против Чёрных. Каждый игрок управляет одним кораблём и тремя пиратами.</p><div class="teams"><span>⚪ Белые</span><b>против</b><span>⚫ Чёрные</span></div></div>
+            <div class="mode-card"><span class="mode-tag">Классика</span><h3>1 на 1 · две команды</h3><p>Игрок 1 управляет Белыми и Чёрными; игрок 2 — Жёлтыми и Красными. У каждой стороны общий счёт.</p><div class="teams"><span>⚪ + ⚫</span><b>против</b><span>🟡 + 🔴</span></div></div>
+          </div>
+          <p class="small-note">В текущем меню доступны эти два варианта. На одном устройстве игроки передают управление друг другу. Для игры онлайн создайте комнату и поделитесь кодом. Также можно передавать ход файлом позиции: выберите игрока, сохраните файл после своего хода и отправьте его сопернику.</p>
+          <div class="two-col">
+            <div class="paper-card"><h3>Онлайн</h3><p>Один игрок создаёт комнату и передаёт код. Второй вводит его в разделе «Играть онлайн». Если соединение прервалось, игра пытается восстановиться после обновления страницы.</p></div>
+            <div class="paper-card"><h3>Игра по файлам</h3><p>В выпадающем списке укажите, за какого игрока играете. После хода нажмите «Сохранить», передайте файл сопернику, а полученную позицию откройте кнопкой «Загрузить позицию».</p></div>
+          </div>
+          <div class="option-note"><strong>Дополнительные правила выключены по умолчанию.</strong><p>Перед стартом можно включить «Открытый крокодил убивает»: принудительная цепочка на уже открытого крокодила погубит пирата. Или «Правило Архипелага»: враги не могут встать на клетку миссионера. Это параметры партии — онлайн-соперник играет с теми же настройками.</p></div>
+        </section>
+
+        <section id="finish" class="guide-section">
+          <p class="eyebrow">08 · Подсчёт результата</p><h2>Когда заканчивается игра</h2>
+          <div class="end-grid">
+            <div><span>01</span><h3>Большинство</h3><p>Сторона доставила 21 или больше из 40 возможных монет.</p></div>
+            <div><span>02</span><h3>Сокровища закончились</h3><p>Все монеты и сокровища уже доставлены или потеряны. Побеждает сторона с большим счётом.</p></div>
+            <div><span>03</span><h3>Пиратов не осталось</h3><p>На поле нет живых пиратов. Сравните доставленные монеты.</p></div>
+            <div><span>04</span><h3>Нет ходов</h3><p>Полный круг команд прошёл без доступных действий. Побеждает лидер по счёту.</p></div>
+          </div>
+          <p class="draw-note">Если партия заканчивается без достижения большинства, выигрывает сторона с большим количеством доставленных монет. При равном счёте лидеров — ничья.</p>
+        </section>
+
+        <section id="faq" class="guide-section faq-section">
+          <p class="eyebrow">09 · Короткие ответы</p><h2>Частые вопросы</h2>
+          <details><summary>Почему я не могу подобрать монету?</summary><p>Проверьте кнопку груза и клетку назначения. С грузом нельзя войти в джунгли, крепость или на аборигенку; на некоторых клетках сперва нужно закончить принудительное перемещение.</p></details>
+          <details><summary>Почему пират вернулся назад?</summary><p>Так действует крокодил. Он возвращает пирата к исходной клетке текущего хода, а груз оставляет там.</p></details>
+          <details><summary>Почему погиб пират, если клетка была подсвечена?</summary><p>Подсветка показывает, что ход доступен по правилам. Но сама цепочка эффектов может привести к опасности: например, пушка или лёд вынесут пирата в море. Следите за предупреждениями и направлением эффекта.</p></details>
+          <details><summary>Можно ли воскресить любого персонажа?</summary><p>На аборигенке воскресают бойцы: обычные пираты, Бен Ганн и экс-миссионер. Миссионер и Пятница не воскресают; также нужно, чтобы у команды было меньше трёх бойцов в строю.</p></details>
+          <details><summary>Что делать, если клетка с несколькими своими пиратами?</summary><p>Нажмите на группу. Появится плашка с номерами фишек; выберите конкретного пирата и затем назначение.</p></details>
+          <details><summary>Почему соперник ходит моими пиратами?</summary><p>Если на острове загорелась трава, временное правило передаёт управление следующей команде в круге. Это действует несколько ходов, затем обычный порядок возвращается.</p></details>
+          <details><summary>Это те же правила, что в моей настольной коробке?</summary><p>Не обязательно. Это справочник по конкретной веб-реализации; состав и детали могут отличаться от разных изданий настольной игры.</p></details>
+        </section>
+
+        <section class="final-cta"><div><p class="eyebrow">Карта ждёт</p><h2>Теперь можно выходить в море</h2><p>Помните главное: находка ещё не очко. Доставьте её на корабль.</p></div><a class="button primary" href="./">К игре <span>↗</span></a></section>
+        <p class="footer-note">Руководство составлено по правилам, реализованным в веб-версии «Шакала».</p>
+      </article>
+    </div>
+  </main>
+</body>
+</html>

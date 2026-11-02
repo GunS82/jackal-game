@@ -17,7 +17,7 @@ if (serverUrl) {
 
 await rm(output, { recursive: true, force: true });
 await mkdir(output, { recursive: true });
-for (const file of ['index.html', 'style.css', 'favicon.svg', 'favicon.ico']) {
+for (const file of ['index.html', 'rules.html', 'rules.css', 'style.css', 'favicon.svg', 'favicon.ico']) {
   await cp(join(root, file), join(output, file));
 }
 for (const dir of ['src', 'assets', 'positions']) {
