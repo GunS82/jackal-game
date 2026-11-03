@@ -1,20 +1,41 @@
 <!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Шакал — остров сокровищ</title><link rel="stylesheet" href="style.css"><link rel="icon" href="favicon.svg">
 </head><body>
-<header><h1><a class="game-brand" href="./">🏴‍☠️ Шакал</a></h1><a class="rules-link" href="rules.html">📖 Правила и как играть</a><div id="turn"><span id="turnDot" class="dot"></span> <span id="turnPrefix">Ход:</span> <span id="turnText"></span></div></header>
+<div id="gameScreen">
+<header><button id="mobileMenuToggle" type="button" aria-label="Открыть меню" aria-expanded="false">☰</button><h1><a class="game-brand" href="./">🏴‍☠️ Шакал</a></h1><a class="rules-link" href="rules.html">📖 Правила и как играть</a><div id="turn"><span id="turnDot" class="dot"></span> <span id="turnPrefix">Ход:</span> <span id="turnText"></span></div><output id="topScore" aria-label="Счёт"></output></header>
 <div id="banner" class="banner" hidden role="status" aria-live="polite"></div>
-<div id="crew" class="crew" aria-label="Пираты обеих сторон"></div>
 <section class="board-shell" aria-label="Игровое поле">
 <div class="board-toolbar" role="group" aria-label="Масштаб поля"><button id="zoomIn" type="button" aria-label="Увеличить поле">+</button><button id="zoomOut" type="button" aria-label="Уменьшить поле">−</button><button id="zoomFit" type="button">Вписать</button><output id="zoomLevel" aria-live="polite">100%</output></div>
-<div id="boardViewport" class="board-viewport" aria-label="Область просмотра игрового поля"><main id="board" aria-label="Игровое поле, 13 на 13 клеток"></main></div>
+<div id="boardViewport" class="board-viewport" aria-label="Область просмотра игрового поля"><main id="board" aria-label="Игровое поле, 13 на 13 клеток"></main><button id="mobileShipBtn" type="button" hidden>⛵ Плыть кораблём</button></div>
 <output id="tileInfo" class="tile-info" aria-live="polite" hidden></output>
 </section>
 <div id="status" role="status" aria-live="polite"></div>
 <div id="score"></div>
-<nav><button id="shipBtn">⛵ Двигать корабль</button><button id="coinBtn">🪙 Без монеты</button><button id="reviveBtn">❤ Воскресить</button><button id="rumBtn">🍾 Дать ром</button>
-<label class="me">Это устройство: <select id="me"><option value="all">оба игрока (hot-seat)</option><option value="0">я играю за игрока 1</option><option value="1">я играю за игрока 2</option></select></label><b id="youAre" class="you-are" hidden></b><button id="newBtn">Новая игра</button><button id="saveBtn">Сохранить</button><button id="loadBtn">Загрузить позицию</button><input type="file" id="file" accept=".json,application/json" hidden></nav>
-<p class="help">Нажмите на своего пирата, затем на подсвеченную клетку. Если на клетке несколько ваших пиратов (значок «×2», «×3»), рядом откроется плашка — выберите на ней нужного. Для корабля — «Двигать корабль». <span id="fileHelp">Игра по файлам: каждый выбирает «я играю за игрока N», после хода жмёт «Сохранить» и пересылает файл сопернику, тот — «Загрузить позицию».</span></p>
+<section id="mobileControls" aria-label="Игровые действия">
 <section id="log" aria-label="Журнал" hidden></section>
+<div class="bottom-tools">
+<div class="crew-window"><button id="crewLeft" class="crew-scroll" type="button" aria-label="Пираты слева">‹</button><div id="crew" class="crew" aria-label="Пираты обеих сторон"></div><button id="crewRight" class="crew-scroll" type="button" aria-label="Пираты справа">›</button></div>
+<nav id="gameActions"><button id="shipBtn">⛵ Двигать корабль</button><button id="coinBtn">🪙 Без монеты</button><button id="reviveBtn">❤ Воскресить</button><button id="rumBtn">🍾 Дать ром</button>
+<label class="me">Это устройство: <select id="me"><option value="all">оба игрока (hot-seat)</option><option value="0">я играю за игрока 1</option><option value="1">я играю за игрока 2</option></select></label><b id="youAre" class="you-are" hidden></b><button id="newBtn">Новая игра</button><button id="saveBtn">Сохранить</button><button id="loadBtn">Загрузить позицию</button><input type="file" id="file" accept=".json,application/json" hidden></nav>
+</div>
+</section>
+<p class="help">Нажмите на своего пирата, затем на подсвеченную клетку. Если на клетке несколько ваших пиратов (значок «×2», «×3»), рядом откроется плашка — выберите на ней нужного. Для корабля — «Двигать корабль». <span id="fileHelp">Игра по файлам: каждый выбирает «я играю за игрока N», после хода жмёт «Сохранить» и пересылает файл сопернику, тот — «Загрузить позицию».</span></p>
+</div>
+<aside id="mobileMenu" hidden aria-label="Игровое меню">
+  <button id="mobileMenuBackdrop" class="menu-backdrop" type="button" aria-label="Закрыть меню"></button>
+  <div class="mobile-drawer" role="dialog" aria-modal="true" aria-labelledby="mobileMenuTitle">
+    <div class="drawer-heading"><h2 id="mobileMenuTitle">Шакал</h2><button id="mobileMenuClose" type="button" aria-label="Закрыть меню">×</button></div>
+    <button id="mobileContinue" type="button">Продолжить</button>
+    <button id="mobileNew" type="button">Новая игра</button>
+    <button id="mobileSave" type="button">Сохранить партию</button>
+    <button id="mobileLoad" type="button">Загрузить позицию</button>
+    <label id="mobileMeLabel" for="mobileMe">Это устройство</label><select id="mobileMe"><option value="all">оба игрока</option><option value="0">за Белых</option><option value="1">за Чёрных</option></select>
+    <button id="mobileScale" type="button">Масштаб поля: по высоте</button>
+    <a href="rules.html">Правила и как играть</a>
+    <div id="mobileScore" class="mobile-score"></div>
+    <button id="mobileLeave" type="button" hidden>Выйти из онлайн-игры</button>
+  </div>
+</aside>
 <dialog id="menu"><h2>Новая игра</h2><p class="menu-guide"><a href="rules.html">📖 Прочитать правила перед игрой</a></p><p id="menuNote" class="note" role="status" hidden></p><button id="continueBtn" hidden>Продолжить сохранённую партию<small></small></button><button id="onlineBtn" class="primary">Играть онлайн<small>через сервер, с другом по коду</small></button><button id="nearbyBtn" class="primary" hidden>Играть рядом<small>по Bluetooth, без интернета</small></button><button data-mode="1v1" class="default">1 на 1 — Белые против Чёрных (по умолчанию)</button><button data-mode="2p">1 на 1 — классика (по 2 команды, общий счёт)</button><label class="opt"><input type="checkbox" id="optCroc"> Домашнее правило: открытый крокодил убивает</label><label class="opt"><input type="checkbox" id="optArch"> Правило Архипелага: к миссионеру врагам нельзя</label><form method="dialog"><button>Отмена</button></form></dialog>
 <dialog id="online"><h2>Онлайн</h2><div id="onlineSetup"><p id="freeNote" class="freenote">Тестовая версия на бесплатном Cloudflare Workers. Неактивные комнаты удаляются через 24 часа, законченные партии — через час.</p>
 <button id="createBtn" class="primary">Создать игру</button>

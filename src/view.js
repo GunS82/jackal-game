@@ -58,6 +58,19 @@ export function headerParts(s, opts = {}) {
   return t.startsWith('Ход: ') ? { prefix: 'Ход:', text: t.slice(5) } : { prefix: '', text: t };
 }
 
+export function mobileHeaderText(s, { myTurn = true } = {}) {
+  if (s.over) return 'Партия окончена';
+  const turn = `Ход ${TURN_GENITIVE[G.TEAMS[s.current].name] ?? G.TEAMS[s.current].name} · №${s.turn + 1}`;
+  if (s.pending) return `${turn} · продолжите ход`;
+  return myTurn ? turn : `${turn} · соперник`;
+}
+
+const SCORE_BADGE = { 'Белые': 'Б', 'Чёрные': 'Ч', 'Жёлтые': 'Ж', 'Красные': 'К' };
+const TURN_GENITIVE = { 'Белые': 'Белых', 'Чёрные': 'Чёрных', 'Жёлтые': 'Жёлтых', 'Красные': 'Красных' };
+export function mobileScore(s) {
+  return G.activeTeams(s.mode).map(team => `${SCORE_BADGE[G.TEAMS[team].name]} ${s.score[team]}`).join(' : ');
+}
+
 // Подсказка: выбранный пират без «С монетой» мог бы отвезти монету на корабль.
 export function coinHint(classified, { sel = null, withCoin = false } = {}) {
   if (typeof sel !== 'number' || withCoin) return null;
@@ -155,11 +168,15 @@ export function onlineBanner(s, { player, connected = true, opponent = 'online',
 export function needsLeaveConfirm(net, s) { return !!net && !net.gone && !!s && !s.over; }
 
 // Приоритет аппаратной кнопки Android: закрыть вложенные элементы до выхода из приложения.
-export function androidBackAction({ dialog = null, plate = false, online = false } = {}) {
+export function androidBackAction({ dialog = null, mobileMenu = false, fitMode = false, logExpanded = false, plate = false, online = false, hasGame = false } = {}) {
   if (dialog === 'online') return 'close-online';
   if (dialog === 'menu') return 'close-menu';
+  if (mobileMenu) return 'close-mobile-menu';
+  if (fitMode) return 'height-fit';
+  if (logExpanded) return 'collapse-log';
   if (plate) return 'close-plate';
   if (online) return 'confirm-online-leave';
+  if (hasGame) return 'confirm-game-exit';
   return 'minimize';
 }
 
