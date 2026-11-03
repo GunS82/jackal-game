@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mobileBoardMetrics, mobileBoardRotation, orientBoardCell, mobileActionSlots } from '../src/mobile-layout.js';
+import {
+  boardGestureMoved, boardZoomLimits, clampBoardTransform, mobileBoardMetrics,
+  mobileBoardRotation, orientBoardCell, mobileActionSlots, toggleBoardZoom, zoomBoardAtPoint,
+} from '../src/mobile-layout.js';
 import * as V from '../src/view.js';
 import * as G from '../src/game.js';
 
@@ -22,6 +25,35 @@ test('the active team ship is placed at the bottom without turning cell contents
     assert.equal(rotated.x, 6);
     assert.equal(rotated.y, 12);
   }
+});
+
+test('mobile zoom limits keep the full board as the minimum and show about six cells at maximum', () => {
+  const limits = boardZoomLimits({ viewportWidth: 412, boardWidth: 412 });
+  assert.equal(limits.minScale, 1);
+  assert.ok(Math.abs(limits.maxScale - 13 / 6) < 0.01);
+  assert.ok(boardZoomLimits({ viewportWidth: 412, boardWidth: 300 }).maxScale <= 3);
+  assert.equal(toggleBoardZoom(1, limits.minScale, limits.maxScale), limits.maxScale);
+  assert.equal(toggleBoardZoom(limits.maxScale, limits.minScale, limits.maxScale), limits.minScale);
+});
+
+test('pan clamping keeps the scaled board inside its viewport and centers undersized content', () => {
+  assert.deepEqual(clampBoardTransform({
+    x: 100, y: -500, scale: 2, minScale: 1, maxScale: 3,
+    viewportWidth: 300, viewportHeight: 200, boardWidth: 400, boardHeight: 300,
+  }), { scale: 2, x: 0, y: -400 });
+  assert.deepEqual(clampBoardTransform({
+    x: 0, y: 0, scale: 1, minScale: 1, maxScale: 3,
+    viewportWidth: 400, viewportHeight: 300, boardWidth: 100, boardHeight: 100,
+  }), { scale: 1, x: 150, y: 100 });
+});
+
+test('zoom stays focused on the pointer and an eight-pixel move counts as a drag', () => {
+  assert.deepEqual(zoomBoardAtPoint({
+    x: 0, y: 0, scale: 1, nextScale: 2, focusX: 200, focusY: 150,
+    minScale: 1, maxScale: 3, viewportWidth: 400, viewportHeight: 300, boardWidth: 400, boardHeight: 400,
+  }), { scale: 2, x: -200, y: -150 });
+  assert.equal(boardGestureMoved(0, 0, 7.9, 0), false);
+  assert.equal(boardGestureMoved(0, 0, 8, 0), true);
 });
 
 test('mobile action slots stay in place while unavailable actions are disabled', () => {

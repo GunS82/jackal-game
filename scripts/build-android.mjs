@@ -19,6 +19,6 @@ if (!['assembleDebug', 'bundleRelease', 'sync'].includes(task)) throw new Error(
 await run(process.execPath, ['scripts/build-web.mjs', 'www']);
 await run(process.execPath, [capCli, 'sync', 'android']);
 if (task !== 'sync') {
-  if (isWindows) await run('cmd.exe', ['/d', '/s', '/c', `""${gradle}" ${task}"`], resolve(root, 'android'));
+  if (isWindows) await run('cmd.exe', ['/d', '/c', 'call', gradle, task], resolve(root, 'android'));
   else await run(gradle, [task], resolve(root, 'android'));
 }

@@ -143,7 +143,7 @@ async function inspectMobileLayout(page) {
   });
 }
 
-test('mobile layout fits both hot-seat turns without overlap and preserves desktop layout', async () => {
+test('mobile zoom, hot-seat rotation, and desktop layout work without overlaps', async () => {
   const states = createFixtureStates();
   const screenshots = process.env.MOBILE_LAYOUT_SCREENSHOT_DIR
     ? resolve(process.cwd(), process.env.MOBILE_LAYOUT_SCREENSHOT_DIR)
@@ -221,15 +221,92 @@ test('mobile layout fits both hot-seat turns without overlap and preserves deskt
           assert.deepEqual(layout.outsideOverlaps, [], `expanded log must not overlap board cells: ${JSON.stringify(layout.outsideOverlaps)}`);
           await page.locator('#mobileLogToggle').click();
           await page.waitForFunction(() => !document.querySelector('#gameScreen').classList.contains('log-expanded'));
+          layout = await inspectMobileLayout(page);
           assert.deepEqual(pageErrors, [], `mobile game render should not throw: ${JSON.stringify(pageErrors)}`);
 
-          if (screenshots) {
-            await page.screenshot({
-              path: resolve(screenshots, `${viewport.width}x${viewport.height}-${turn}.png`),
-              animations: 'disabled',
-              scale: 'css',
-            });
-          }
+          if (screenshots) await page.screenshot({
+            path: resolve(screenshots, `${viewport.width}x${viewport.height}-${turn}-fit.png`),
+            animations: 'disabled', scale: 'css',
+          });
+
+          const turnBeforeZoom = await page.evaluate(() => JSON.parse(localStorage.getItem('jackal-save')).turn);
+          const activeCellBox = await page.locator('#board .cell:has(.pirate.sel)').first().boundingBox();
+          const viewportBox = await page.locator('#boardViewport').boundingBox();
+          await page.locator('#boardViewport').dblclick({ position: {
+            x: activeCellBox.x + activeCellBox.width / 2 - viewportBox.x,
+            y: activeCellBox.y + activeCellBox.height / 2 - viewportBox.y,
+          } });
+          await page.waitForFunction(() => document.querySelector('#zoomLevel').value !== 'Целиком');
+          const zoomed = await page.evaluate(() => {
+            const viewport = document.querySelector('#boardViewport').getBoundingClientRect();
+            const cells = [...document.querySelectorAll('#board .cell')];
+            const visibleColumns = new Set(cells.filter(cell => {
+              const box = cell.getBoundingClientRect(), center = box.left + box.width / 2;
+              return center >= viewport.left && center <= viewport.right;
+            }).map(cell => Number(cell.dataset.cell.split(',')[0])));
+            const scale = new DOMMatrixReadOnly(getComputedStyle(document.querySelector('#board')).transform).a;
+            return { visibleColumns: visibleColumns.size, scale, viewportWidth: viewport.width };
+          });
+          assert.ok(zoomed.scale > 1.5, `double-tap should zoom in: ${JSON.stringify(zoomed)}`);
+          assert.ok(zoomed.visibleColumns >= 5 && zoomed.visibleColumns <= 7, `maximum zoom should show about six columns: ${JSON.stringify(zoomed)}`);
+          await page.waitForTimeout(320);
+          assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('jackal-save')).turn), turnBeforeZoom, 'double-tap must not make a cell move');
+          if (screenshots) await page.screenshot({
+            path: resolve(screenshots, `${viewport.width}x${viewport.height}-${turn}-zoom.png`),
+            animations: 'disabled', scale: 'css',
+          });
+
+          const beforePan = await page.locator('#board').evaluate(board => new DOMMatrixReadOnly(getComputedStyle(board).transform).m41);
+          const panStart = { x: viewportBox.x + viewportBox.width / 2, y: viewportBox.y + viewportBox.height / 2 };
+          await page.mouse.move(panStart.x, panStart.y);
+          await page.mouse.down();
+          await page.mouse.move(panStart.x + 30, panStart.y + 18, { steps: 3 });
+          await page.mouse.up();
+          const afterPan = await page.locator('#board').evaluate(board => new DOMMatrixReadOnly(getComputedStyle(board).transform).m41);
+          assert.notEqual(afterPan, beforePan, 'a one-pointer drag should pan the zoomed board');
+          assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('jackal-save')).turn), turnBeforeZoom, 'dragging must not make a cell move');
+
+          await page.locator('#zoomFit').click();
+          await page.waitForFunction(() => document.querySelector('#zoomLevel').value === 'Целиком');
+          layout = await inspectMobileLayout(page);
+          assert.ok(layout.cellsInsideViewport, 'fit should restore the full 13×13 board');
+
+          const pinch = await page.evaluate(() => {
+            const viewport = document.querySelector('#boardViewport'), rect = viewport.getBoundingClientRect();
+            const midX = rect.left + rect.width * 0.48, midY = rect.top + rect.height / 2;
+            const startX = midX - 40, secondX = midX + 40;
+            const dispatch = (type, pointerId, clientX, clientY) => viewport.dispatchEvent(new PointerEvent(type, {
+              bubbles: true, pointerId, pointerType: 'touch', isPrimary: pointerId === 41,
+              clientX, clientY, button: 0, buttons: type === 'pointerup' ? 0 : 1,
+            }));
+            const initial = new DOMMatrixReadOnly(getComputedStyle(document.querySelector('#board')).transform);
+            const boardPoint = (midX - initial.m41) / initial.a;
+            dispatch('pointerdown', 41, startX, midY);
+            dispatch('pointerdown', 42, secondX, midY);
+            dispatch('pointermove', 42, midX + 90, midY);
+            const transformed = new DOMMatrixReadOnly(getComputedStyle(document.querySelector('#board')).transform);
+            const finalMidX = (startX + midX + 90) / 2;
+            const focalError = Math.abs((finalMidX - transformed.m41) / transformed.a - boardPoint);
+            dispatch('pointerup', 41, startX, midY);
+            dispatch('pointerup', 42, midX + 90, midY);
+            return { scale: transformed.a, focalError };
+          });
+          assert.ok(pinch.scale > 1.4, `two pointers should pinch-zoom: ${JSON.stringify(pinch)}`);
+          assert.ok(pinch.focalError < 1, `pinch should keep its midpoint focused: ${JSON.stringify(pinch)}`);
+          await page.locator('#zoomFit').click();
+          await page.waitForFunction(() => document.querySelector('#zoomLevel').value === 'Целиком');
+          const beforeTap = await page.evaluate(() => localStorage.getItem('jackal-save'));
+          const stateBeforeTap = G.loadState(beforeTap);
+          const selectedPid = Number(await page.locator('#mobilePirates .mobile-pirate.sel').getAttribute('data-pid'));
+          const legalMove = G.legalMoves(G.publicState(stateBeforeTap)).find(move => move.type === 'move' && move.pid === selectedPid);
+          assert.ok(legalMove, `the selected pirate should have a regular move: pid=${selectedPid}`);
+          const targetCell = page.locator(`#board [data-cell="${legalMove.x},${legalMove.y}"]`);
+          assert.ok(await targetCell.evaluate(cell => cell.classList.contains('target')), 'the legal destination should be highlighted');
+          await targetCell.click();
+          await page.waitForFunction(before => localStorage.getItem('jackal-save') !== before, beforeTap);
+          const stateAfterTap = G.loadState(await page.evaluate(() => localStorage.getItem('jackal-save')));
+          assert.notDeepEqual(stateAfterTap.pirates[selectedPid], stateBeforeTap.pirates[selectedPid], 'a single tap should make the highlighted move');
+          assert.deepEqual(pageErrors, [], `mobile game render should not throw: ${JSON.stringify(pageErrors)}`);
         } finally {
           await context.close();
         }
@@ -256,6 +333,18 @@ test('mobile layout fits both hot-seat turns without overlap and preserves deskt
       assert.notEqual(desktopLayout.toolbarDisplay, 'none', 'desktop zoom toolbar stays available');
       assert.notEqual(desktopLayout.crewDisplay, 'none', 'desktop crew panels stay available');
       assert.equal(desktopLayout.mobilePiratesDisplay, 'none', 'mobile pirate dock stays hidden on desktop');
+      const box = await page.locator('#boardViewport').boundingBox();
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      await page.mouse.wheel(0, -120);
+      await page.waitForFunction(() => document.querySelector('#zoomLevel').value !== 'Целиком');
+      const beforePan = await page.locator('#board').evaluate(board => new DOMMatrixReadOnly(getComputedStyle(board).transform).m41);
+      await page.mouse.down();
+      await page.mouse.move(box.x + box.width / 2 + 24, box.y + box.height / 2 + 16, { steps: 3 });
+      await page.mouse.up();
+      const afterPan = await page.locator('#board').evaluate(board => new DOMMatrixReadOnly(getComputedStyle(board).transform).m41);
+      assert.notEqual(afterPan, beforePan, 'desktop mouse dragging should pan after wheel zoom');
+      await page.locator('#zoomFit').click();
+      await page.waitForFunction(() => document.querySelector('#zoomLevel').value === 'Целиком');
     } finally {
       await desktop.close();
     }
