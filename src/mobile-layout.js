@@ -1,5 +1,77 @@
 export const MOBILE_ACTION_IDS = Object.freeze(['ship', 'coin', 'rum', 'revive', 'pass']);
 
+export function boardZoomLimits({
+  viewportWidth,
+  boardWidth,
+  columns = 13,
+  maxVisibleColumns = 6,
+  minScale = 1,
+  maxScale = 3,
+} = {}) {
+  if (!(viewportWidth > 0) || !(boardWidth > 0) || !(columns > 0) || !(maxVisibleColumns > 0)) {
+    return { minScale, maxScale: minScale };
+  }
+  const scaleForVisibleColumns = viewportWidth / (boardWidth / columns * maxVisibleColumns);
+  return { minScale, maxScale: Math.max(minScale, Math.min(maxScale, scaleForVisibleColumns)) };
+}
+
+export function clampBoardTransform({
+  x = 0,
+  y = 0,
+  scale = 1,
+  minScale = 1,
+  maxScale = 3,
+  viewportWidth,
+  viewportHeight,
+  boardWidth,
+  boardHeight,
+} = {}) {
+  const nextScale = Math.max(minScale, Math.min(maxScale, scale));
+  const scaledWidth = boardWidth * nextScale, scaledHeight = boardHeight * nextScale;
+  return {
+    scale: nextScale,
+    x: scaledWidth <= viewportWidth ? (viewportWidth - scaledWidth) / 2 : Math.max(viewportWidth - scaledWidth, Math.min(0, x)),
+    y: scaledHeight <= viewportHeight ? (viewportHeight - scaledHeight) / 2 : Math.max(viewportHeight - scaledHeight, Math.min(0, y)),
+  };
+}
+
+export function zoomBoardAtPoint({
+  x = 0,
+  y = 0,
+  scale = 1,
+  nextScale = scale,
+  focusX = 0,
+  focusY = 0,
+  minScale = 1,
+  maxScale = 3,
+  viewportWidth,
+  viewportHeight,
+  boardWidth,
+  boardHeight,
+} = {}) {
+  const boundedScale = Math.max(minScale, Math.min(maxScale, nextScale));
+  const safeScale = Math.max(Number.EPSILON, scale);
+  return clampBoardTransform({
+    x: focusX - ((focusX - x) / safeScale) * boundedScale,
+    y: focusY - ((focusY - y) / safeScale) * boundedScale,
+    scale: boundedScale,
+    minScale,
+    maxScale,
+    viewportWidth,
+    viewportHeight,
+    boardWidth,
+    boardHeight,
+  });
+}
+
+export function boardGestureMoved(startX, startY, x, y, threshold = 8) {
+  return Math.hypot(x - startX, y - startY) >= threshold;
+}
+
+export function toggleBoardZoom(scale, minScale, maxScale) {
+  return scale <= minScale + 0.01 ? maxScale : minScale;
+}
+
 export function mobileBoardMetrics({
   viewportWidth,
   viewportHeight,

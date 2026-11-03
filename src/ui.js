@@ -4,14 +4,20 @@ import * as Net from './net.js';
 import { stateMessage } from './bluetooth-protocol.js';
 import { IS_REMOTE, SERVER_CONFIGURED } from './config.js';
 import { ASSETS, ARROW_GLYPH, ROLE_BADGE, tileImg, pirateImg, pieceImg, shipImg, coinImg, treasureImg, hlImg } from './assets.js';
-import { mobileBoardMetrics, mobileBoardRotation, orientBoardCell, mobileActionSlots } from './mobile-layout.js';
+import {
+  boardGestureMoved, boardZoomLimits, clampBoardTransform, mobileBoardMetrics,
+  mobileBoardRotation, orientBoardCell, mobileActionSlots, toggleBoardZoom, zoomBoardAtPoint,
+} from './mobile-layout.js';
 const $ = s => document.querySelector(s);
 let plate = null; // плашка выбора пирата: { x, y, pids }
 let state = null, sel = null, withCoin = false, notice = '';
 let logExpanded = false, lastCenteredTurn = null, noticeTimer = null;
-const boardView = { scale: 1, minScale: .3, maxScale: 3, x: 0, y: 0 };
+const boardView = { scale: 1, minScale: 1, maxScale: 3, x: 0, y: 0, mobileLayout: null };
 const pointers = new Map();
-let gesture = null, longPressTimer = null, suppressCellClickUntil = 0;
+let gesture = null, longPressTimer = null;
+let pendingBoardTap = null, pendingBoardTapTimer = null, suppressPointerClickUntil = 0;
+let multiTouchActive = false, centeringTimer = null;
+const BOARD_DRAG_THRESHOLD = 8, DOUBLE_TAP_MS = 280, DOUBLE_TAP_DISTANCE = 36;
 // Кем играет это устройство: 'all' — hot-seat, 0/1 — «я играю за игрока 1/2» (файловый мультиплеер).
 let me = localStorage.getItem('jackal-me') ?? 'all';
 // Онлайн: net = { sess: {code, token, player}, connected, opponent, stop } или null.
@@ -45,12 +51,13 @@ function clearMobileBoardSizing() {
   const b = $('#board');
   for (const property of ['grid-template-columns', 'grid-template-rows', 'width', 'height', '--cell-size']) b.style.removeProperty(property);
 }
-function applyMobileBoardLayout() {
+function applyMobileBoardLayout({ fit = false } = {}) {
   const root = $('#gameScreen'), v = $('#boardViewport'), b = $('#board');
   const compact = compactLayout();
   root.classList.toggle('mobile-layout', compact);
   root.classList.toggle('log-expanded', compact && logExpanded);
-  if (!compact || !v.clientWidth || !v.clientHeight) return;
+  if (!compact) { clearMobileBoardSizing(); boardView.mobileLayout = null; return; }
+  if (!v.clientWidth || !v.clientHeight) return;
   const gap = 1;
   const metrics = mobileBoardMetrics({ viewportWidth: v.clientWidth, viewportHeight: v.clientHeight, gap });
   const size = metrics.cellSize;
@@ -60,45 +67,67 @@ function applyMobileBoardLayout() {
   b.style.width = `${metrics.boardWidth}px`;
   b.style.height = `${metrics.boardHeight}px`;
   b.style.setProperty('--cell-size', `${size}px`);
-  b.style.transform = 'none';
-  boardView.scale = 1; boardView.x = 0; boardView.y = 0;
-  $('#zoomLevel').value = 'Целиком';
-  $('#zoomIn').disabled = true; $('#zoomOut').disabled = true;
+  boardView.minScale = 1;
+  const limits = boardZoomLimits({ viewportWidth: v.clientWidth, boardWidth: metrics.boardWidth, columns: G.N, minScale: 1, maxScale: 8 });
+  boardView.maxScale = limits.maxScale;
+  const layout = { width: v.clientWidth, height: v.clientHeight, boardWidth: metrics.boardWidth, boardHeight: metrics.boardHeight };
+  const changed = !boardView.mobileLayout || Object.keys(layout).some(key => Math.abs(layout[key] - boardView.mobileLayout[key]) > 0.5);
+  boardView.mobileLayout = layout;
+  if (fit || changed) {
+    boardView.scale = boardView.minScale;
+    boardView.x = (v.clientWidth - metrics.boardWidth) / 2;
+    boardView.y = (v.clientHeight - metrics.boardHeight) / 2;
+  }
+  clampBoardView();
 }
 function clampBoardView() {
   const { w, h, bw, bh } = viewportSize(); if (!w || !h || !bw || !bh) return;
-  boardView.scale = Math.max(boardView.minScale, Math.min(boardView.maxScale, boardView.scale));
-  const sw = bw * boardView.scale, sh = bh * boardView.scale;
-  boardView.x = sw <= w ? (w - sw) / 2 : Math.max(w - sw, Math.min(0, boardView.x));
-  boardView.y = sh <= h ? (h - sh) / 2 : Math.max(h - sh, Math.min(0, boardView.y));
+  Object.assign(boardView, clampBoardTransform({
+    ...boardView, viewportWidth: w, viewportHeight: h, boardWidth: bw, boardHeight: bh,
+  }));
   const b = $('#board'); b.style.transform = `translate3d(${boardView.x}px,${boardView.y}px,0) scale(${boardView.scale})`;
-  $('#zoomLevel').value = `${Math.round(boardView.scale * 100)}%`;
+  $('#zoomLevel').value = boardView.scale <= boardView.minScale + .001 ? 'Целиком' : `${Math.round(boardView.scale * 100)}%`;
   $('#zoomOut').disabled = boardView.scale <= boardView.minScale + .001;
   $('#zoomIn').disabled = boardView.scale >= boardView.maxScale - .001;
 }
 function fitBoard() {
-  if (compactLayout()) { applyMobileBoardLayout(); return; }
+  if (compactLayout()) {
+    applyMobileBoardLayout();
+    const { w, h, bw, bh } = viewportSize(); if (!w || !h || !bw || !bh) return;
+    boardView.scale = boardView.minScale;
+    boardView.x = (w - bw * boardView.scale) / 2; boardView.y = (h - bh * boardView.scale) / 2;
+    $('#boardViewport').classList.remove('is-centering');
+    clampBoardView(); return;
+  }
   const { w, h, bw, bh } = viewportSize(); if (!w || !h || !bw || !bh) return;
   const fit = Math.min(w / bw, h / bh, 1);
-  boardView.minScale = Math.max(.2, fit); boardView.scale = fit;
+  boardView.minScale = Math.max(.2, fit);
+  boardView.maxScale = boardZoomLimits({ viewportWidth: w, boardWidth: bw, columns: G.N, minScale: boardView.minScale, maxScale: 8 }).maxScale;
+  boardView.scale = fit;
   boardView.x = (w - bw * fit) / 2; boardView.y = (h - bh * fit) / 2;
+  $('#boardViewport').classList.remove('is-centering');
   clampBoardView();
 }
 function zoomBoard(scale, focusX, focusY) {
-  const { v } = viewportSize(), r = v.getBoundingClientRect();
-  const fx = focusX == null ? r.width / 2 : focusX - r.left, fy = focusY == null ? r.height / 2 : focusY - r.top;
-  const old = boardView.scale, next = Math.max(boardView.minScale, Math.min(boardView.maxScale, scale));
-  boardView.x = fx - ((fx - boardView.x) / old) * next;
-  boardView.y = fy - ((fy - boardView.y) / old) * next;
-  boardView.scale = next; clampBoardView();
+  const { v, w, h, bw, bh } = viewportSize(), r = v.getBoundingClientRect();
+  const fx = focusX == null ? w / 2 : focusX - r.left, fy = focusY == null ? h / 2 : focusY - r.top;
+  Object.assign(boardView, zoomBoardAtPoint({
+    ...boardView, nextScale: scale, focusX: fx, focusY: fy,
+    viewportWidth: w, viewportHeight: h, boardWidth: bw, boardHeight: bh,
+  }));
+  v.classList.remove('is-centering');
+  clampBoardView();
 }
 function centerBoardCell(x, y) {
+  if (boardView.scale <= boardView.minScale + .001) return;
   const cell = $(`#board [data-cell="${x},${y}"]`); if (!cell) return;
   const viewport = $('#boardViewport'), v = viewport.getBoundingClientRect(), c = cell.getBoundingClientRect();
-  if (compactLayout()) return;
+  viewport.classList.add('is-centering');
   boardView.x += v.left + v.width / 2 - (c.left + c.width / 2);
   boardView.y += v.top + v.height / 2 - (c.top + c.height / 2);
   clampBoardView();
+  clearTimeout(centeringTimer);
+  centeringTimer = setTimeout(() => viewport.classList.remove('is-centering'), 220);
 }
 function showTileInfoAt(x, y) {
   const info = $('#tileInfo'), tile = state && G.tileAt(state, x, y);
@@ -114,47 +143,99 @@ function setupBoardNavigation() {
   $('#zoomIn').onclick = () => zoomBoard(boardView.scale * 1.25);
   $('#zoomOut').onclick = () => zoomBoard(boardView.scale / 1.25);
   $('#zoomFit').onclick = fitBoard;
-  v.addEventListener('wheel', e => { if (compactLayout()) return; e.preventDefault(); zoomBoard(boardView.scale * (e.deltaY < 0 ? 1.15 : 1 / 1.15), e.clientX, e.clientY); }, { passive: false });
+  const clearPendingBoardTap = () => {
+    clearTimeout(pendingBoardTapTimer); pendingBoardTapTimer = null; pendingBoardTap = null;
+  };
+  const performBoardTap = ({ x, y }) => {
+    if (!state) return;
+    const moves = myTurn() ? G.classifyMoves(G.publicState(state)) : [];
+    click(x, y, V.targets(moves, { s: state, sel, withCoin }));
+  };
+  const flushPendingBoardTap = () => {
+    if (!pendingBoardTap) return;
+    const tap = pendingBoardTap; clearPendingBoardTap(); performBoardTap(tap);
+  };
+  document.addEventListener('pointerdown', e => {
+    if (pendingBoardTap && !v.contains(e.target)) flushPendingBoardTap();
+  }, true);
+  const queueBoardTap = (e, cell) => {
+    if (!cell) return;
+    const [x, y] = cell.dataset.cell.split(',').map(Number), now = Date.now();
+    if (pendingBoardTap && now - pendingBoardTap.time <= DOUBLE_TAP_MS &&
+      Math.hypot(e.clientX - pendingBoardTap.clientX, e.clientY - pendingBoardTap.clientY) <= DOUBLE_TAP_DISTANCE) {
+      clearPendingBoardTap();
+      zoomBoard(toggleBoardZoom(boardView.scale, boardView.minScale, boardView.maxScale), e.clientX, e.clientY);
+      return;
+    }
+    if (pendingBoardTap) flushPendingBoardTap();
+    pendingBoardTap = { x, y, time: now, clientX: e.clientX, clientY: e.clientY };
+    pendingBoardTapTimer = setTimeout(flushPendingBoardTap, DOUBLE_TAP_MS);
+  };
+  v.addEventListener('click', e => {
+    if (e.detail === 0 || Date.now() > suppressPointerClickUntil) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+  }, true);
+  v.addEventListener('wheel', e => {
+    if (compactLayout()) return;
+    e.preventDefault();
+    zoomBoard(boardView.scale * Math.exp(-e.deltaY * .002), e.clientX, e.clientY);
+  }, { passive: false });
   v.addEventListener('pointerdown', e => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
     const cell = e.target.closest?.('.cell'), key = cell?.dataset.cell;
     clearTimeout(longPressTimer); longPressTimer = null;
     if (key && state && G.tileAt(state, ...key.split(',').map(Number))?.open) {
-      longPressTimer = setTimeout(() => { showTileInfoAt(...key.split(',').map(Number)); suppressCellClickUntil = Date.now() + 400; if (gesture) gesture.longPressed = true; }, 520);
+      longPressTimer = setTimeout(() => { showTileInfoAt(...key.split(',').map(Number)); if (gesture) gesture.longPressed = true; }, 520);
     }
-    if (compactLayout()) return; // retain native horizontal touch scrolling on phones
-    v.setPointerCapture(e.pointerId); pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    v.classList.remove('is-centering');
+    try { v.setPointerCapture(e.pointerId); } catch { /* synthetic test pointers do not have an active browser capture */ }
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pointers.size === 1) gesture = { type: 'pan', startX: e.clientX, startY: e.clientY, x: boardView.x, y: boardView.y, moved: false };
     else if (pointers.size === 2) {
+      multiTouchActive = true;
+      clearPendingBoardTap();
       clearTimeout(longPressTimer); longPressTimer = null;
       const [a, b] = [...pointers.values()], r = v.getBoundingClientRect();
-      gesture = { type: 'pinch', distance: Math.hypot(a.x - b.x, a.y - b.y), scale: boardView.scale, x: boardView.x, y: boardView.y, midX: (a.x + b.x) / 2 - r.left, midY: (a.y + b.y) / 2 - r.top, moved: false };
+      gesture = { type: 'pinch', distance: Math.hypot(a.x - b.x, a.y - b.y), scale: boardView.scale, x: boardView.x, y: boardView.y, midX: (a.x + b.x) / 2 - r.left, midY: (a.y + b.y) / 2 - r.top, moved: true };
     }
   });
   v.addEventListener('pointermove', e => {
     if (!pointers.has(e.pointerId) || !gesture) return;
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (Math.hypot(e.clientX - gesture.startX, e.clientY - gesture.startY) > 8 || gesture.type === 'pinch') { clearTimeout(longPressTimer); longPressTimer = null; }
+    if (gesture.type === 'pan' && boardGestureMoved(gesture.startX, gesture.startY, e.clientX, e.clientY, BOARD_DRAG_THRESHOLD)) {
+      if (!gesture.moved) { gesture.moved = true; if (pendingBoardTap) flushPendingBoardTap(); }
+      clearTimeout(longPressTimer); longPressTimer = null;
+    }
+    if (gesture.type === 'pinch') { clearTimeout(longPressTimer); longPressTimer = null; }
     if (gesture.type === 'pinch' && pointers.size >= 2) {
       const [a, b] = [...pointers.values()], d = Math.max(1, Math.hypot(a.x - b.x, a.y - b.y));
       const r = v.getBoundingClientRect(), mx = (a.x + b.x) / 2 - r.left, my = (a.y + b.y) / 2 - r.top, next = Math.max(boardView.minScale, Math.min(boardView.maxScale, gesture.scale * d / Math.max(1, gesture.distance)));
       const ax = (gesture.midX - gesture.x) / gesture.scale, ay = (gesture.midY - gesture.y) / gesture.scale;
       boardView.scale = next; boardView.x = mx - ax * next; boardView.y = my - ay * next; gesture.moved = true; clampBoardView();
     } else if (gesture.type === 'pan' && pointers.size === 1) {
-      if (Math.hypot(e.clientX - gesture.startX, e.clientY - gesture.startY) > 4) gesture.moved = true;
       if (gesture.moved) { boardView.x = gesture.x + e.clientX - gesture.startX; boardView.y = gesture.y + e.clientY - gesture.startY; clampBoardView(); }
     }
   });
   const pointerEnd = e => {
     clearTimeout(longPressTimer); longPressTimer = null;
+    const endingGesture = gesture, tap = e.type === 'pointerup' && !multiTouchActive && endingGesture?.type === 'pan' && !endingGesture.moved && !endingGesture.longPressed && pointers.size === 1;
+    const tapped = document.elementFromPoint(e.clientX, e.clientY) ?? e.target;
+    const cell = tapped.closest?.('.cell') ?? e.target.closest?.('.cell');
     pointers.delete(e.pointerId);
-    if (gesture?.moved || gesture?.longPressed) suppressCellClickUntil = Date.now() + 350;
-    if (pointers.size === 1) { const [p] = pointers.values(); gesture = { type: 'pan', startX: p.x, startY: p.y, x: boardView.x, y: boardView.y, moved: false }; }
-    else gesture = null;
+    suppressPointerClickUntil = Date.now() + 800;
+    if (tap) {
+      if (cell) queueBoardTap(e, cell);
+      else tapped.closest?.('#board button:not(.cell)')?.click();
+    }
+    if (pointers.size === 1) {
+      const [p] = pointers.values();
+      gesture = { type: 'pan', startX: p.x, startY: p.y, x: boardView.x, y: boardView.y, moved: multiTouchActive };
+    } else { gesture = null; multiTouchActive = false; }
   };
   v.addEventListener('pointerup', pointerEnd); v.addEventListener('pointercancel', pointerEnd);
   const resizeLayout = () => {
-    if (compactLayout()) applyMobileBoardLayout();
-    else { clearMobileBoardSizing(); fitBoard(); }
+    if (compactLayout()) applyMobileBoardLayout({ fit: true });
+    else { clearMobileBoardSizing(); boardView.mobileLayout = null; fitBoard(); }
   };
   const ro = new ResizeObserver(resizeLayout); ro.observe(v);
   addEventListener('resize', resizeLayout);
@@ -490,7 +571,6 @@ async function joinBluetooth(address) {
 }
 
 function click(x, y, targets) {
-  if (Date.now() < suppressCellClickUntil) return;
   const hit = targets.find(m => m.x === x && m.y === y);
   if (hit) { const { kind, ...mv } = hit; return play(mv); }
   showTileInfoAt(x, y);
