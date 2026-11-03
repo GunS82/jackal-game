@@ -97,18 +97,6 @@ export function mobileBoardMetrics({
   };
 }
 
-// Team 0 starts at the bottom; rotate each other team's ship to the bottom edge.
-export function mobileBoardRotation(team = 0) {
-  return ((4 - team) % 4 + 4) % 4;
-}
-
-// Rotate grid coordinates clockwise without rotating the contents of each cell.
-export function orientBoardCell(x, y, turns = 0, size = 13) {
-  let col = x, row = y;
-  for (let i = 0; i < ((turns % 4) + 4) % 4; i++) [col, row] = [size - 1 - row, col];
-  return { x: col, y: row };
-}
-
 // Fixed slots stay in place when an action is unavailable.
 export function mobileActionSlots(buttons = {}) {
   return MOBILE_ACTION_IDS.map(id => ({
