@@ -149,11 +149,12 @@ body{width:100%;max-width:100vw;overflow-x:hidden}
 .tile-info[hidden]{display:none}
 @media(max-width:480px){.board-shell,.board-viewport{width:calc(100vw - 12px)}.board-viewport{height:min(calc(100vw - 12px),68dvh)}}
 
-/* Responsive game shell: the legacy desktop toolbar remains in place, phones use a thumb dock. */
+/* Desktop keeps the original toolbar and crew panels; mobile gets an in-flow game dock. */
 #gameScreen{box-sizing:border-box;width:100%;display:flex;flex-direction:column;align-items:center}
 #gameScreen>header{order:1}.game-brand{color:inherit;text-decoration:none}
 .banner{order:2}#crew{order:3}.board-shell{order:4}#status{order:5}#score{order:6}#gameActions{order:7}.help{order:8}#log{order:9}
-#mobileMenuToggle,#topScore,#mobileShipBtn,.crew-scroll{display:none}
+#mobileMenuToggle,#topScore,#mobilePirates,.crew-scroll{display:none}
+#mobileLogRow{display:contents}#mobileLogToggle{display:none}
 .crew-window,.bottom-tools,#mobileControls{display:contents}
 .target{position:relative}
 .target::after{content:"";position:absolute;inset:0;z-index:4;pointer-events:none;background:#3fbf5a55}
@@ -161,65 +162,73 @@ body{width:100%;max-width:100vw;overflow-x:hidden}
 
 @media (max-width:600px),(orientation:portrait){
   html,body{width:100%;height:100%;max-width:100%;overflow:hidden}
-  body{display:block;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom);background:#0d4a5e;user-select:none;-webkit-user-select:none}
-  #gameScreen{height:100%;min-height:0;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:44px min-content minmax(0,1fr) auto;grid-template-areas:"header" "banner" "board" "controls";gap:0;align-items:stretch;overflow:hidden}
+  body{display:block;padding:0;background:#0d4a5e;user-select:none;-webkit-user-select:none}
+  #gameScreen{height:100dvh;min-height:0;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom);display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:44px auto 30px 56px minmax(0,1fr) 136px;grid-template-areas:"header" "banner" "log" "tile" "board" "controls";gap:0;align-items:stretch;overflow:hidden}
   #gameScreen>header{grid-area:header;display:flex;flex-wrap:nowrap;justify-content:stretch;gap:6px;width:100%;height:44px;min-height:44px;padding:4px 6px;overflow:hidden}
   #mobileMenuToggle{display:block;flex:0 0 44px;width:44px;height:44px;min-width:44px;min-height:44px;padding:0;border:2px solid #5a3b1e;border-radius:9px;background:#f3e3bf;color:#3b2a14;font-size:23px;line-height:1;touch-action:manipulation}
   #gameScreen h1,.rules-link{display:none}
-  #turn{display:flex;align-items:center;gap:5px;flex:1 1 auto;min-width:0;height:36px;margin:0;padding:0 10px;overflow:hidden;white-space:nowrap;border:3px solid #e3b23c;border-radius:999px;background:#f3e3bf;color:#4a3410;font:700 13px/1.1 system-ui,sans-serif}
+  #turn{display:flex;align-items:center;gap:5px;flex:1 1 auto;min-width:0;height:36px;margin:0;padding:0 10px;overflow:hidden;white-space:nowrap;border:3px solid #e3b23c;border-radius:999px;background:#f3e3bf;color:#4a3410;font:700 14px/1.1 system-ui,sans-serif}
   #turn .dot{flex:0 0 12px;width:12px;height:12px}
   #turnText{overflow:hidden;text-overflow:ellipsis}
-  #topScore{display:flex;align-items:center;justify-content:center;flex:0 0 auto;min-width:66px;height:36px;padding:0 4px;color:#fff;font:700 12px/1 system-ui,sans-serif;white-space:nowrap}
+  #topScore{display:flex;align-items:center;justify-content:center;gap:4px;flex:0 0 124px;width:124px;height:36px;padding:0 5px;border:2px solid #5a3b1e;border-radius:999px;background:#f3e3bf;color:#3b2a14;font:700 16px/1 system-ui,sans-serif;white-space:nowrap}
+  .score-group{display:inline-flex;align-items:center;gap:3px}
+  .score-group i{width:10px;height:10px;flex:none;border:1px solid #3b2a14;border-radius:50%}
+  .score-separator{font-weight:700}
   #banner{grid-area:banner;margin:0;padding:4px 10px;border-radius:0;font-size:12px}
-  #crew{order:initial}
-  .board-shell{grid-area:board;order:initial;width:100%;min-width:0;min-height:0;height:100%;gap:0}
-  .board-toolbar{display:none}
-  .board-viewport{flex:1 1 auto;width:100%;height:100%;min-width:0;min-height:0;overflow-x:auto;overflow-y:hidden;overscroll-behavior:contain;touch-action:pan-x;scroll-behavior:smooth;user-select:none;background:#167f91;border:0;border-radius:0;box-shadow:none}
-  #board{position:relative;left:auto;top:auto;display:grid;gap:2px;width:max-content;height:max-content;margin-inline:auto;aspect-ratio:auto;transform:none;transform-origin:0 0;overflow:visible;contain:layout style;will-change:auto}
-  #board .cell{width:100%;height:100%;min-width:0;min-height:0;font-size:clamp(12px,calc(var(--cell-size)*.38),24px);touch-action:pan-x}
-  .cell .tile-label{font-size:clamp(7px,calc(var(--cell-size)*.15),10px)}
-  #mobileShipBtn{display:block;position:absolute;z-index:8;min-width:44px;min-height:44px;padding:7px 12px;border:2px solid #5a3b1e;border-radius:999px;background:#e3b23c;color:#3b2a14;font:700 13px/1 system-ui,sans-serif;white-space:nowrap;box-shadow:0 2px 6px #0008;touch-action:manipulation}
-  #mobileShipBtn[hidden]{display:none}
-  .board-shell{position:relative}
-  .tile-info{position:absolute;z-index:12;left:4px;right:4px;bottom:4px;width:auto;margin:0}
-  #status{position:fixed;z-index:30;left:50%;bottom:calc(72px + env(safe-area-inset-bottom));transform:translateX(-50%);width:max-content;max-width:92vw;min-height:0;padding:7px 12px;border:1px solid #72551f;border-radius:9px;background:#f3e3bf;color:#3b2a14;font-size:13px;line-height:1.3;text-align:center;box-shadow:0 2px 8px #0007}
-  #status:empty{display:none}
-  #score,.help{display:none}
-  #mobileControls{grid-area:controls;order:initial;display:flex;flex-direction:column;min-height:0;width:100%;overflow:hidden;background:#0d4a5e}
-  #log{order:initial;flex:0 0 18px;width:100%;height:18px;min-height:18px;max-height:18px;margin:0;padding:0 8px;overflow:hidden;border:0;border-radius:0;background:#0d2a35;color:#b9c7cc;font:12px/18px Georgia,"Times New Roman",serif;white-space:nowrap}
+  #status{display:none}
+  #mobileLogRow{grid-area:log;display:flex;flex-direction:column;align-self:stretch;min-width:0;min-height:30px;max-height:30px;overflow:hidden;background:#0a3a4a;color:#efe0bb}
+  #mobileLogToggle{display:flex;align-items:center;gap:8px;flex:none;width:100%;height:30px;min-height:30px;margin:0;padding:0 10px;border:0;border-radius:0;background:transparent;color:#efe0bb;text-align:left;font:12px/1.2 Georgia,"Times New Roman",serif;touch-action:manipulation}
+  #mobileStatus,#logPreview{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #mobileStatus[hidden],#logPreview[hidden]{display:none}
+  .log-link{flex:none;color:#e3b23c}
+  #log{display:none;order:initial;flex:1 1 auto;width:100%;min-width:0;min-height:0;max-height:none;margin:0;padding:5px 10px;overflow:auto;border:0;border-top:1px solid #b9a57a55;border-radius:0;background:#0d2a35;color:#d8d0bb;font:12px/1.35 Georgia,"Times New Roman",serif;white-space:normal}
   #log h3{display:none}
   #log ol{display:block;margin:0;padding:0;list-style:none}
-  #log li{height:18px;min-height:18px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;align-items:center}
-  #log li:not(:first-child){display:none}
-  .bottom-tools{order:initial;display:flex;flex:0 0 64px;align-items:center;gap:3px;width:100%;height:64px;min-height:64px;padding:2px 5px}
-  .crew-window{display:flex;flex:1 1 auto;align-items:center;min-width:0;height:60px;overflow:hidden}
-  .crew-scroll{display:block;flex:0 0 44px;width:44px;height:44px;min-height:44px;padding:0;background:#f3e3bf;color:#3b2a14;font-size:20px}
-  .crew-scroll[hidden]{display:none}
-  .crew{display:flex;flex:1 1 auto;flex-wrap:nowrap;justify-content:flex-start;gap:0;width:100%;height:60px;min-width:0;margin:0;overflow-x:auto;overflow-y:hidden;overscroll-behavior:contain;scrollbar-width:none;touch-action:pan-x}
-  .crew::-webkit-scrollbar{display:none}
-  .crew .panel{display:none;flex:0 0 auto;width:max-content;max-width:none;height:58px;margin:0;padding:6px 2px;border:0;border-radius:0;background:transparent;box-shadow:none}
-  .crew .panel.current{display:flex;align-items:center}
-  .crew .panel header{display:none}
-  .crew .toks{display:flex;flex:0 0 auto;justify-content:flex-start;gap:2px;width:max-content;min-width:0}
-  .crew .tok{flex:0 0 44px;width:44px;height:44px;min-width:44px;min-height:44px;margin:0;border-width:3px}
-  .crew .div{height:38px;flex:0 0 1px;margin:0 4px}
-  #gameActions{display:flex;flex:0 0 auto;flex-wrap:nowrap;justify-content:flex-end;gap:3px;width:auto;height:60px;margin:0;overflow:visible}
-  #gameActions button{display:block;flex:0 0 48px;width:48px;min-width:44px;height:48px;min-height:44px;padding:3px;border:1px solid #5a3b1e;border-radius:9px;background:#f3e3bf;color:#3b2a14;font:600 11px/1.1 system-ui,sans-serif;white-space:normal;touch-action:manipulation}
-  #gameActions button:disabled{display:none}
-  #gameActions #shipBtn,#gameActions #newBtn,#gameActions #saveBtn,#gameActions #loadBtn,#gameActions .me,#gameActions #youAre{display:none!important}
-  #mobileControls.log-expanded #log{flex:0 0 auto}
-  #gameScreen.log-expanded #mobileControls #log{flex:0 0 auto;height:auto;max-height:112px;min-height:18px;overflow:auto;white-space:normal}
-  #gameScreen.log-expanded #log li{display:flex;min-height:18px;height:auto;white-space:normal}
-  #gameScreen.log-expanded #log li .lt{overflow-wrap:anywhere}
-  #gameScreen.fit-whole{grid-template-rows:44px min-content auto minmax(0,1fr)}
-  #gameScreen.fit-whole .board-shell{height:auto;align-self:start}
-  #gameScreen.fit-whole .board-viewport{flex:0 0 auto;width:100%;height:auto;overflow:visible;touch-action:manipulation}
-  #gameScreen.fit-whole #board{position:relative}
-  #gameScreen.fit-whole #mobileControls{flex:1 1 auto;min-height:0}
-  #gameScreen.fit-whole #log{flex:1 1 auto;height:auto;max-height:none;min-height:48px;overflow:auto;padding:3px 8px;border-top:1px dashed #b9a57a88;background:#0d2a35aa;white-space:normal;line-height:16px}
-  #gameScreen.fit-whole #log li{display:flex;height:auto;min-height:16px;white-space:normal;line-height:16px}
-  #gameScreen.fit-whole #log li .lt{overflow-wrap:anywhere}
-  #gameScreen.fit-whole .bottom-tools{flex-basis:64px}
+  #log li{display:flex;height:auto;min-height:18px;overflow-wrap:anywhere;white-space:normal}
+  #score,.help{display:none}
+  .board-shell{display:contents}
+  .board-toolbar{display:none}
+  .board-viewport{grid-area:board;display:flex;align-items:center;justify-content:center;width:100%;height:100%;min-width:0;min-height:0;overflow:hidden;overscroll-behavior:contain;touch-action:manipulation;user-select:none;background:#167f91;border:0;border-radius:0;box-shadow:none}
+  #board{position:relative;left:auto;top:auto;display:grid;gap:1px;width:max-content;height:max-content;margin:0;aspect-ratio:auto;transform:none;transform-origin:0 0;overflow:visible;contain:layout style;will-change:auto}
+  #board .cell{width:100%;height:100%;min-width:0;min-height:0;padding:0;font-size:clamp(12px,calc(var(--cell-size)*.4),24px);touch-action:manipulation}
+  #board .cell img.tile{inset:20%;width:60%;height:60%;object-fit:contain}
+  #board .cell.has-badge img.tile:not(.ship-image){inset:0 auto auto 0;width:52%;height:52%}
+  #board .cell .tile-label{display:none}
+  #board .cell .coins,#board .cell .treasure{z-index:5;right:0;top:0;max-width:45%;padding:1px 2px;border:1px solid #5a3b1e;border-radius:7px;background:#ffd700;color:#24180d;font:700 8px/1 system-ui,sans-serif}
+  #board .cell .treasure{top:auto;bottom:0}
+  #board .cell .coins img.ci{width:8px;height:8px;vertical-align:middle}
+  #board .cell .treasure img.ti{width:10px;height:10px;vertical-align:middle}
+  #tileInfo{grid-area:tile;align-self:stretch;display:flex;align-items:center;gap:9px;width:100%;height:56px;min-height:56px;margin:0;padding:5px 8px;border:0;border-top:1px solid #5a3b1e;border-bottom:1px solid #5a3b1e;background:#f3e3bf;color:#3b2a14;font:13px/1.2 Georgia,"Times New Roman",serif}
+  #tileInfo[hidden]{display:none}
+  .tile-card-icon{display:flex;align-items:center;justify-content:center;flex:0 0 42px;width:42px;height:42px;border:1px solid #5a3b1e;border-radius:6px;background:#e5d29d}
+  .tile-card-icon img{width:36px;height:36px;object-fit:contain}
+  .tile-card-copy{display:flex;flex:1 1 auto;flex-direction:column;min-width:0;gap:2px}
+  .tile-card-copy strong{font-size:14px;line-height:1.1}
+  .tile-card-copy small{overflow:hidden;color:#5a3b1e;font-size:11px;line-height:1.15;text-overflow:ellipsis;white-space:nowrap}
+  .tile-card-badge{display:flex;align-items:center;justify-content:center;flex:0 0 40px;width:40px;height:28px;border:1px solid #5a3b1e;border-radius:14px;background:#e3b23c;font-size:13px;font-weight:700}
+  #mobileControls{grid-area:controls;display:flex;min-width:0;min-height:0;width:100%;height:136px;overflow:hidden;border-top:2px solid #e3b23c;background:#08303d}
+  .bottom-tools{display:flex;flex:1 1 auto;flex-direction:column;justify-content:center;gap:7px;min-width:0;min-height:0;width:100%;height:100%;margin:0;padding:6px 8px}
+  #mobilePirates{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;width:100%;height:56px;margin:0}
+  #mobilePirates button{display:flex;align-items:center;justify-content:center;gap:5px;position:relative;min-width:0;min-height:52px;height:56px;margin:0;padding:3px 4px;border:2px solid #5a3b1e;border-radius:9px;background:#f3e3bf;color:#3b2a14;font:700 13px/1 system-ui,sans-serif;touch-action:manipulation}
+  #mobilePirates button img{width:24px;height:24px;object-fit:contain}
+  #mobilePirates button:disabled{opacity:.48}
+  #mobilePirates button.sel{border-width:4px;background:#e3b23c;box-shadow:0 0 0 1px #ffd86a}
+  #mobilePirates button[aria-pressed="true"]{outline:none}
+  #mobilePirates .pirate-choice{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0}
+  #mobilePirates .pirate-choice small{font-size:9px;color:#7b5312}
+  #mobilePirates #mobileCancel{border:2px dashed #efe0bb;background:transparent;color:#efe0bb}
+  .crew-window{display:none}
+  #gameActions{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));align-items:center;gap:4px;width:100%;height:48px;margin:0;overflow:visible}
+  #gameActions button{display:block;min-width:0;width:100%;height:48px;min-height:44px;margin:0;padding:3px 2px;border:2px solid #5a3b1e;border-radius:8px;background:#f3e3bf;color:#3b2a14;font:700 9.5px/1.1 system-ui,sans-serif;white-space:normal;touch-action:manipulation}
+  #gameActions button:disabled{display:block;opacity:.43}
+  #gameActions button[hidden]{display:none!important}
+  #gameActions #newBtn,#gameActions #saveBtn,#gameActions #loadBtn,#gameActions .me,#gameActions #youAre{display:none!important}
+  #gameScreen.log-expanded #mobileLogRow{height:140px;max-height:140px}
+  #gameScreen.log-expanded #log{display:block}
+  #gameScreen.log-expanded{grid-template-rows:44px auto 140px 56px minmax(0,1fr) 136px}
+  #board .cell.target{outline:2px dashed #3fe07a;outline-offset:-3px}
+  #board .cell.target.hl-death{outline-color:#e34131}
+  #board .cell.target.hl-coin,#board .cell.target.hl-coin-lost{outline-color:#e3b23c}
   #mobileMenu:not([hidden]){position:fixed;z-index:1000;inset:0;display:flex;align-items:stretch}
   #mobileMenu .menu-backdrop{position:absolute;inset:0;width:100%;height:100%;padding:0;border:0;border-radius:0;background:#0007;touch-action:manipulation}
   .mobile-drawer{position:relative;z-index:1;display:flex;flex-direction:column;gap:0;width:min(310px,86vw);height:100%;padding:12px 14px calc(12px + env(safe-area-inset-bottom));overflow:auto;background:#f3e3bf;color:#3b2a14;border-right:3px solid #5a3b1e;box-shadow:4px 0 16px #0007;touch-action:pan-y}
@@ -235,22 +244,11 @@ body{width:100%;max-width:100vw;overflow-x:hidden}
 }
 
 @media (orientation:landscape) and (max-height:600px){
-  #gameScreen.mobile-layout{grid-template-columns:minmax(0,1fr) minmax(160px,28vw);grid-template-rows:44px minmax(0,1fr);grid-template-areas:"header header" "board controls"}
-  #gameScreen.mobile-layout .board-shell{height:100%;min-height:0}
-  #gameScreen.mobile-layout #banner{position:fixed;z-index:30;top:48px;left:4px;right:calc(28vw + 8px);margin:0}
-  #gameScreen.mobile-layout .board-viewport{height:100%}
-  #gameScreen.mobile-layout #mobileControls{height:100%;min-height:0;flex-direction:column}
-  #gameScreen.mobile-layout #log{flex:1 1 auto;height:auto;max-height:none;min-height:48px;overflow:auto;padding:4px 8px;white-space:normal}
-  #gameScreen.mobile-layout #log li{display:flex;height:auto;min-height:18px;white-space:normal}
-  #gameScreen.mobile-layout .bottom-tools{flex:0 0 auto;flex-direction:column;align-items:stretch;height:auto;min-height:0;padding:4px}
-  #gameScreen.mobile-layout .crew-window{flex:0 0 auto;width:100%;height:auto}
-  #gameScreen.mobile-layout #crew{max-height:46vh;flex-direction:column;overflow-x:hidden;overflow-y:auto}
-  #gameScreen.mobile-layout .crew .panel.current{width:100%;height:auto}
-  #gameScreen.mobile-layout .crew .toks{flex-wrap:wrap;justify-content:center}
-  #gameScreen.mobile-layout #gameActions{flex-direction:column;width:100%;height:auto}
-  #gameScreen.mobile-layout #gameActions button{flex:0 0 44px;width:100%;height:44px;font-size:12px}
-  #gameScreen.mobile-layout #status{left:4px;right:calc(28vw + 8px);bottom:8px;transform:none;width:auto}
-  #gameScreen.mobile-layout.fit-whole{grid-template-rows:44px minmax(0,1fr)}
-  #gameScreen.mobile-layout.fit-whole .board-shell{align-self:stretch}
-  #gameScreen.mobile-layout.fit-whole .board-viewport{height:auto;align-self:center}
+  #gameScreen{grid-template-columns:minmax(0,1fr) minmax(220px,34vw);grid-template-rows:44px auto 30px 56px minmax(0,1fr);grid-template-areas:"header header" "banner banner" "log log" "tile controls" "board controls"}
+  #mobileControls{grid-area:controls;align-self:stretch;height:auto;min-height:0;border-top:0;border-left:2px solid #e3b23c}
+  .bottom-tools{justify-content:center;gap:12px;padding:8px}
+  #mobilePirates{grid-template-columns:repeat(2,minmax(0,1fr));height:auto}
+  #gameActions{grid-template-columns:repeat(2,minmax(0,1fr));height:auto}
+  #gameActions button{height:44px}
+  #gameScreen.log-expanded{grid-template-rows:44px auto 140px 56px minmax(0,1fr)}
 }

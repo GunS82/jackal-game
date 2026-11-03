@@ -1,52 +1,46 @@
-export const MOBILE_LAYOUT = Object.freeze({
-  topBar: 44,
-  collapsedLog: 18,
-  dock: 64,
-  gap: 2,
-  minLogLines: 3,
-  maxLogLines: 4,
-  logLineHeight: 16,
-});
+export const MOBILE_ACTION_IDS = Object.freeze(['ship', 'coin', 'rum', 'revive', 'pass']);
 
-const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
-
-// Height mode keeps all 13 rows visible; fit mode compresses the two outer sea rows.
 export function mobileBoardMetrics({
   viewportWidth,
   viewportHeight,
-  mode = 'height',
   columns = 13,
   rows = 13,
-  gap = MOBILE_LAYOUT.gap,
-  topBar = MOBILE_LAYOUT.topBar,
-  collapsedLog = MOBILE_LAYOUT.collapsedLog,
-  dock = MOBILE_LAYOUT.dock,
-  availableHeight = null,
+  gap = 1,
   maxCellSize = 128,
 } = {}) {
   if (!(viewportWidth > 0) || !(viewportHeight > 0) || columns < 1 || rows < 1) {
-    return { cellSize: 0, boardWidth: 0, boardHeight: 0, logLines: 0 };
+    return { cellSize: 0, boardWidth: 0, boardHeight: 0, spareHeight: 0 };
   }
 
-  let cellSize;
-  let boardHeight;
-  if (mode === 'fit') {
-    cellSize = Math.min(maxCellSize, (viewportWidth - (columns - 1) * gap) / columns);
-    boardHeight = cellSize * (rows - 1) + (rows - 1) * gap;
-  } else {
-    const boardSpace = Math.max(1, availableHeight ?? viewportHeight - topBar - collapsedLog - dock);
-    cellSize = Math.min(maxCellSize, (boardSpace - (rows - 1) * gap) / rows);
-    boardHeight = cellSize * rows + (rows - 1) * gap;
-  }
-
+  const availableWidth = Math.max(0, viewportWidth - (columns - 1) * gap);
+  const availableHeight = Math.max(0, viewportHeight - (rows - 1) * gap);
+  const cellSize = Math.min(maxCellSize, availableWidth / columns, availableHeight / rows);
   const boardWidth = cellSize * columns + (columns - 1) * gap;
-  const spareHeight = Math.max(0, viewportHeight - topBar - dock - boardHeight);
-  const logLines = mode === 'fit'
-    ? clamp(Math.floor(spareHeight / MOBILE_LAYOUT.logLineHeight), MOBILE_LAYOUT.minLogLines, MOBILE_LAYOUT.maxLogLines)
-    : 1;
-  return { cellSize, boardWidth, boardHeight, logLines, spareHeight };
+  const boardHeight = cellSize * rows + (rows - 1) * gap;
+  return {
+    cellSize,
+    boardWidth,
+    boardHeight,
+    spareHeight: Math.max(0, viewportHeight - boardHeight),
+  };
 }
 
-export function availableMobileActions(buttons = {}) {
-  return ['coin', 'revive', 'rum'].filter(id => buttons[id] && !buttons[id].disabled);
+// Team 0 starts at the bottom; rotate each other team's ship to the bottom edge.
+export function mobileBoardRotation(team = 0) {
+  return ((4 - team) % 4 + 4) % 4;
+}
+
+// Rotate grid coordinates clockwise without rotating the contents of each cell.
+export function orientBoardCell(x, y, turns = 0, size = 13) {
+  let col = x, row = y;
+  for (let i = 0; i < ((turns % 4) + 4) % 4; i++) [col, row] = [size - 1 - row, col];
+  return { x: col, y: row };
+}
+
+// Fixed slots stay in place when an action is unavailable.
+export function mobileActionSlots(buttons = {}) {
+  return MOBILE_ACTION_IDS.map(id => ({
+    id,
+    disabled: id === 'pass' || buttons[id]?.disabled !== false,
+  }));
 }

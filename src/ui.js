@@ -4,11 +4,11 @@ import * as Net from './net.js';
 import { stateMessage } from './bluetooth-protocol.js';
 import { IS_REMOTE, SERVER_CONFIGURED } from './config.js';
 import { ASSETS, ARROW_GLYPH, ROLE_BADGE, tileImg, pirateImg, pieceImg, shipImg, coinImg, treasureImg, hlImg } from './assets.js';
-import { mobileBoardMetrics, availableMobileActions } from './mobile-layout.js';
+import { mobileBoardMetrics, mobileBoardRotation, orientBoardCell, mobileActionSlots } from './mobile-layout.js';
 const $ = s => document.querySelector(s);
 let plate = null; // плашка выбора пирата: { x, y, pids }
 let state = null, sel = null, withCoin = false, notice = '';
-let fitWholeBoard = false, logExpanded = false, lastCenteredTurn = null, noticeTimer = null, mobileShipVisible = false;
+let logExpanded = false, lastCenteredTurn = null, noticeTimer = null;
 const boardView = { scale: 1, minScale: .3, maxScale: 3, x: 0, y: 0 };
 const pointers = new Map();
 let gesture = null, longPressTimer = null, suppressCellClickUntil = 0;
@@ -23,12 +23,12 @@ function pic(src, emoji, cls = '', rot = 0) {
   if (!rot) return `<img class="${cls}" src="${src}" alt="" onerror="this.outerHTML='<span class=emo>${emoji}</span>'">`;
   return `<img class="${cls}" src="${src}" alt="" style="transform:rotate(${rot * 90}deg)" onerror="this.outerHTML='<span class=emo>${emoji}</span>'">`;
 }
-function tileHTML(t) {
+function tileHTML(t, boardRotation = 0) {
   if (!t.open) return pic(tileImg(t), ASSETS.closed.emoji, 'tile');
   let h;
   if (t.kind === 'arrow' || t.kind === 'cannon') {
     const r = G.tileRotation(t), glyph = t.dirs.map(d => ARROW_GLYPH[d.join(',')]).join('');
-    h = r == null ? `<span class="arrows">${glyph}</span>` : pic(tileImg(t), glyph, 'tile', r);
+    h = r == null ? `<span class="arrows" style="transform:rotate(${boardRotation * 90}deg)">${glyph}</span>` : pic(tileImg(t), glyph, 'tile', r + boardRotation);
   } else h = pic(tileImg(t), ASSETS[t.kind]?.emoji ?? '', `tile${t.kind === 'plane' && t.used ? ' plane-used' : ''}`);
   const details = V.tileDetails(t);
   h += `<small class="tile-label">${details.name.toLocaleLowerCase('ru-RU')}</small>`;
@@ -49,13 +49,12 @@ function applyMobileBoardLayout() {
   const root = $('#gameScreen'), v = $('#boardViewport'), b = $('#board');
   const compact = compactLayout();
   root.classList.toggle('mobile-layout', compact);
-  root.classList.toggle('fit-whole', compact && fitWholeBoard);
-  root.classList.toggle('log-expanded', compact && (fitWholeBoard || logExpanded));
+  root.classList.toggle('log-expanded', compact && logExpanded);
   if (!compact || !v.clientWidth || !v.clientHeight) return;
-  const gap = 2, width = v.clientWidth;
-  const metrics = mobileBoardMetrics({ viewportWidth: width, viewportHeight: window.innerHeight, mode: fitWholeBoard ? 'fit' : 'height', availableHeight: v.clientHeight, gap });
+  const gap = 1;
+  const metrics = mobileBoardMetrics({ viewportWidth: v.clientWidth, viewportHeight: v.clientHeight, gap });
   const size = metrics.cellSize;
-  const rowSizes = Array.from({ length: G.N }, (_, row) => `${fitWholeBoard && (row === 0 || row === G.N - 1) ? size / 2 : size}px`);
+  const rowSizes = Array.from({ length: G.N }, () => `${size}px`);
   b.style.gridTemplateColumns = `repeat(${G.N}, ${size}px)`;
   b.style.gridTemplateRows = rowSizes.join(' ');
   b.style.width = `${metrics.boardWidth}px`;
@@ -63,7 +62,7 @@ function applyMobileBoardLayout() {
   b.style.setProperty('--cell-size', `${size}px`);
   b.style.transform = 'none';
   boardView.scale = 1; boardView.x = 0; boardView.y = 0;
-  $('#zoomLevel').value = fitWholeBoard ? 'Целиком' : 'По высоте';
+  $('#zoomLevel').value = 'Целиком';
   $('#zoomIn').disabled = true; $('#zoomOut').disabled = true;
 }
 function clampBoardView() {
@@ -96,32 +95,19 @@ function zoomBoard(scale, focusX, focusY) {
 function centerBoardCell(x, y) {
   const cell = $(`#board [data-cell="${x},${y}"]`); if (!cell) return;
   const viewport = $('#boardViewport'), v = viewport.getBoundingClientRect(), c = cell.getBoundingClientRect();
-  if (compactLayout()) {
-    viewport.scrollTo({ left: Math.max(0, viewport.scrollLeft + c.left + c.width / 2 - (v.left + v.width / 2)), behavior: 'smooth' });
-    return;
-  }
+  if (compactLayout()) return;
   boardView.x += v.left + v.width / 2 - (c.left + c.width / 2);
   boardView.y += v.top + v.height / 2 - (c.top + c.height / 2);
   clampBoardView();
 }
-function updateMobileShipButton(show) {
-  const button = $('#mobileShipBtn'), viewport = $('#boardViewport');
-  mobileShipVisible = !!show && !!state;
-  button.hidden = !mobileShipVisible;
-  if (!mobileShipVisible) return;
-  const ship = state.ships[state.current], cell = $(`#board [data-cell="${ship.x},${ship.y}"]`);
-  if (!cell) return;
-  const v = viewport.getBoundingClientRect(), c = cell.getBoundingClientRect();
-  const left = viewport.scrollLeft + c.left - v.left + c.width / 2 - button.offsetWidth / 2;
-  const top = c.top - v.top + c.height / 2 - button.offsetHeight / 2;
-  button.style.left = `${Math.max(4, Math.min(viewport.clientWidth - button.offsetWidth - 4, left))}px`;
-  button.style.top = `${Math.max(4, Math.min(viewport.clientHeight - button.offsetHeight - 4, top))}px`;
-}
 function showTileInfoAt(x, y) {
   const info = $('#tileInfo'), tile = state && G.tileAt(state, x, y);
-  if (!tile?.open) { info.hidden = true; info.textContent = ''; return; }
-  const { name, rule } = V.tileDetails(tile);
-  info.textContent = `${name}. ${rule}`; info.hidden = false;
+  const details = tile ? V.tileDetails(tile) : { name: 'Море', rule: 'Морская клетка. По ней перемещаются пираты и корабли.' };
+  const icon = tile ? tileImg(tile) : tileImg({ kind: 'sea', open: true });
+  const emoji = tile ? (ASSETS[tile.open ? tile.kind : 'closed']?.emoji ?? '🌴') : '🌊';
+  const badgeValue = tile?.coins || tile?.treasure || 0;
+  info.innerHTML = `<span class="tile-card-icon">${pic(icon, emoji, 'tile')}</span><span class="tile-card-copy"><strong>${details.name}</strong><small>${details.rule}</small></span>${badgeValue ? `<span class="tile-card-badge">${badgeValue}</span>` : ''}`;
+  info.hidden = false;
 }
 function setupBoardNavigation() {
   const v = $('#boardViewport');
@@ -167,8 +153,8 @@ function setupBoardNavigation() {
   };
   v.addEventListener('pointerup', pointerEnd); v.addEventListener('pointercancel', pointerEnd);
   const resizeLayout = () => {
-    if (compactLayout()) { applyMobileBoardLayout(); updateMobileShipButton(mobileShipVisible); }
-    else { updateMobileShipButton(false); clearMobileBoardSizing(); fitBoard(); }
+    if (compactLayout()) applyMobileBoardLayout();
+    else { clearMobileBoardSizing(); fitBoard(); }
   };
   const ro = new ResizeObserver(resizeLayout); ro.observe(v);
   addEventListener('resize', resizeLayout);
@@ -178,13 +164,21 @@ function setupBoardNavigation() {
 function render() {
   const s = state, moves = myTurn() ? G.classifyMoves(G.publicState(s)) : []; // подсветка не выдаёт содержимое закрытых клеток
   const targets = V.plateHidesMoves(plate, sel) ? [] : V.targets(moves, { s, sel, withCoin }); // открыта плашка, пират не выбран — без подсветки
+  const compact = compactLayout();
+  if (compact) placeWakeBanner();
+  const perspectiveTeam = net ? (G.teamsOfPlayer(s, net.sess.player)[0] ?? s.current)
+    : me === 'all' ? s.current : (G.teamsOfPlayer(s, +me)[0] ?? s.current);
+  const boardRotation = compact ? mobileBoardRotation(perspectiveTeam) : 0;
   const b = $('#board'), focusedCell = b.contains(document.activeElement) ? document.activeElement.dataset.cell : null; b.innerHTML = '';
   for (let y = 0; y < G.N; y++) for (let x = 0; x < G.N; x++) {
-    const c = document.createElement('button'); c.type = 'button'; c.className = 'cell'; c.dataset.cell = `${x},${y}`; c.style.gridArea = `${y + 1} / ${x + 1}`; // явное место: плашка поверх клеток не сдвигает их
+    const c = document.createElement('button'); c.type = 'button'; c.className = 'cell';
+    const visual = orientBoardCell(x, y, boardRotation, G.N);
+    c.dataset.cell = `${x},${y}`; c.style.gridArea = `${visual.y + 1} / ${visual.x + 1}`; // содержимое остаётся читаемым, поворачиваются координаты поля
     const t = G.tileAt(s, x, y), details = t ? V.tileDetails(t) : null;
-    if (t) { c.classList.add(t.open ? 'open' : 'closed', 'k-' + t.kind); if (t.used) c.classList.add('used'); c.innerHTML = tileHTML(t); c.title = `${details.name}. ${details.rule}`; } else c.classList.add('sea');
+    if (t) { c.classList.add(t.open ? 'open' : 'closed', 'k-' + t.kind); if (t.used) c.classList.add('used'); c.innerHTML = tileHTML(t, boardRotation); c.title = `${details.name}. ${details.rule}`; } else c.classList.add('sea');
     const sh = G.shipAt(s, x, y);
-    if (sh >= 0) { c.classList.add('ship'); c.style.setProperty('--team', G.TEAMS[sh].color); c.insertAdjacentHTML('afterbegin', pic(shipImg(sh), '⛵', 'tile')); }
+    if (sh >= 0) { c.classList.add('ship'); c.style.setProperty('--team', G.TEAMS[sh].color); c.insertAdjacentHTML('afterbegin', pic(shipImg(sh), '⛵', 'tile ship-image', boardRotation)); }
+    if (t?.coins || t?.treasure) c.classList.add('has-badge');
     const ps = s.pirates.filter(p => p.alive && p.x === x && p.y === y);
     const st = V.stacks(s, ps, sel);
     st.forEach((k, i) => { const p = k.top, many = k.n > 1;
@@ -215,36 +209,59 @@ function render() {
   const T = G.TEAMS[s.current];
   const hp = V.headerParts(s, { myTurn: myTurn(), online: !!net }), dot = $('#turnDot');
   dot.hidden = !!s.over; dot.style.background = T.color;
-  const compact = compactLayout();
   $('#turn').style.borderColor = compact ? '#e3b23c' : '';
   $('#turnPrefix').textContent = compact ? '' : hp.prefix;
   $('#turnText').textContent = compact ? V.mobileHeaderText(s, { myTurn: myTurn() }) : hp.text;
-  $('#status').textContent = notice || V.plateHint(plate, sel, myTurn()) || (sel == null ? V.skipNotice(s) : null) || V.coinHint(moves, { sel, withCoin }) || V.selectHint(s, sel, { myTurn: myTurn() }) || ''; notice = '';
+  const statusText = notice || V.plateHint(plate, sel, myTurn()) || (sel == null ? V.skipNotice(s) : null) || V.coinHint(moves, { sel, withCoin }) || V.selectHint(s, sel, { myTurn: myTurn() }) || '';
+  $('#status').textContent = statusText;
+  $('#mobileStatus').textContent = statusText;
+  $('#mobileStatus').hidden = !statusText;
+  $('#logPreview').hidden = !!statusText;
+  notice = '';
   if (compact && $('#status').textContent) {
     clearTimeout(noticeTimer); const message = $('#status').textContent;
-    noticeTimer = setTimeout(() => { if ($('#status').textContent === message) $('#status').textContent = ''; }, 3000);
+    noticeTimer = setTimeout(() => { if ($('#status').textContent === message) { $('#status').textContent = ''; $('#mobileStatus').textContent = ''; $('#mobileStatus').hidden = true; $('#logPreview').hidden = false; } }, 3000);
   }
   const sc = G.sideScores(s);
   $('#score').innerHTML = Object.keys(sc).map(k => `${G.sideName(s, +k)}: <b>${sc[k]}</b>`).join(' · ') + ` · осталось ${G.coinsLeft(s)} · утонуло ${s.lost} · ром: ${G.activeTeams(s.mode).map(t => s.rum[t]).join('/')}`;
-  $('#topScore').textContent = V.mobileScore(s);
+  const scoreSides = Object.entries(sc);
+  const scoreHtml = scoreSides.map(([side, value], i) => {
+    const team = G.activeTeams(s.mode).find(t => G.sideOf(s, t) === +side);
+    return `${i ? '<b class="score-separator">:</b>' : ''}<span class="score-group"><i style="background:${G.TEAMS[team]?.color ?? '#fff'}"></i><b>${value}</b></span>`;
+  }).join('');
+  $('#topScore').innerHTML = scoreHtml;
+  $('#topScore').setAttribute('aria-label', `Счёт: ${V.mobileScore(s)}`);
+  $('#topScore').style.flexBasis = scoreSides.length > 2 ? '150px' : compact && window.innerWidth <= 380 ? '100px' : '124px';
   $('#mobileScore').textContent = $('#score').textContent;
   $('#mobileScale').disabled = false;
-  $('#mobileScale').textContent = `Масштаб поля: ${fitWholeBoard ? 'целиком' : 'по высоте'}`;
+  $('#mobileScale').textContent = 'Вписать поле';
   $('#mobileContinue').hidden = false;
   const bs = V.buttons(s, moves, { sel, withCoin, myTurn: myTurn() });
-  const shownActions = new Set(availableMobileActions(bs));
-  for (const [id, key, button] of [['#shipBtn', 'ship', bs.ship], ['#coinBtn', 'coin', bs.coin], ['#reviveBtn', 'revive', bs.revive], ['#rumBtn', 'rum', bs.rum]]) {
-    const el = $(id); el.disabled = button.disabled; el.textContent = button.label; el.setAttribute('aria-pressed', button.pressed);
-    el.hidden = compact ? key === 'ship' || !shownActions.has(key) : false;
+  const actions = { ship: ['#shipBtn', '⛵ Корабль'], coin: ['#coinBtn', '🪙 Монета'], rum: ['#rumBtn', '🍾 Ром'], revive: ['#reviveBtn', '❤ Возродить'] };
+  for (const slot of mobileActionSlots(bs)) {
+    if (slot.id === 'pass') continue;
+    const [id, shortLabel] = actions[slot.id], button = bs[slot.id], el = $(id);
+    el.disabled = slot.disabled;
+    el.textContent = compact ? shortLabel : button.label;
+    el.title = button.label;
+    el.setAttribute('aria-label', button.label);
+    el.setAttribute('aria-pressed', String(button.pressed));
+    el.hidden = false;
   }
+  $('#passBtn').hidden = !compact;
+  $('#passBtn').disabled = true;
+  $('#passBtn').setAttribute('aria-label', 'Пропуск хода выполняется автоматически, если ходов нет');
+  $('#mobileLogToggle').setAttribute('aria-expanded', String(compact && logExpanded));
   $('#me').value = me;
   $('#mobileMe').value = me;
-  const logLimit = compact && fitWholeBoard
-    ? mobileBoardMetrics({ viewportWidth: $('#boardViewport').clientWidth, viewportHeight: window.innerHeight, mode: 'fit' }).logLines
-    : 5;
-  { const es = V.logEntries(s, logLimit), esc = t => t.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]); $('#log').hidden = !es.length && !(compact && fitWholeBoard);
+  {
+    const es = V.logEntries(s, 5), esc = t => t.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]);
+    $('#log').hidden = !es.length && !compact;
+    const preview = es[0];
+    $('#logPreview').textContent = preview ? `${preview.n ? `№${preview.n} · ` : ''}${preview.text}` : 'Журнал партии — коснитесь, чтобы открыть';
     const lines = es.map(e => `<li>${e.n ? `<span class="ln">№${e.n}</span>` : ''}${e.team != null ? `<i class="dot" style="--team:${G.TEAMS[e.team].color}"></i>` : ''}<span class="lt">${esc(e.text)}</span></li>`).join('');
-    $('#log').innerHTML = '<h3>Журнал</h3><ol>' + (lines || (compact && fitWholeBoard ? '<li><span class="lt">Журнал партии</span></li>' : '')) + '</ol>'; }
+    $('#log').innerHTML = '<h3>Журнал</h3><ol>' + (lines || (compact ? '<li><span class="lt">Пока нет записей</span></li>' : '')) + '</ol>';
+  }
   if (s.pending && (!s.pending.type || s.pending.type === 'cave') && myTurn() && sel !== s.pending.pid) { sel = s.pending.pid; withCoin = s.pending.treasure ? 'T' : s.pending.coin; return render(); }
   const ya = $('#youAre'); ya.hidden = !net; if (net) { ya.textContent = V.youAreText(s, net.sess.player); ya.style.borderColor = G.TEAMS[G.teamsOfPlayer(s, net.sess.player)[0]]?.color ?? ''; }
   $('#freeNote').textContent = V.FREE_SHORT;
@@ -257,9 +274,9 @@ function render() {
     b.append(d);
   } else plate = null;
   renderCrew(s, moves);
+  renderMobilePirates(s, moves);
   renderBanner();
   applyMobileBoardLayout();
-  updateMobileShipButton(compact && !bs.ship.disabled && (sel === 'ship' || (typeof sel === 'number' && G.onShip(s, s.pirates[sel]))));
   const turnKey = `${s.turn}:${s.current}`;
   if (turnKey !== lastCenteredTurn) {
     lastCenteredTurn = turnKey;
@@ -268,6 +285,20 @@ function render() {
     if (first && compact) requestAnimationFrame(() => centerBoardCell(p?.x ?? first.x, p?.y ?? first.y));
   }
   if (!net) localStorage.setItem('jackal-save', G.serialize(s));
+}
+function renderMobilePirates(s, moves) {
+  const el = $('#mobilePirates'), available = new Set(moves.map(m => m.pid));
+  const team = V.crewPanel(s, s.current);
+  const slots = team.regular.map(p => {
+    const piece = s.pirates[p.pid], selected = sel === p.pid;
+    const label = `П${p.num}`;
+    return `<button type="button" class="mobile-pirate${selected ? ' sel' : ''}" data-pid="${p.pid}" aria-pressed="${selected}" aria-label="${label}${selected ? ', выбран' : ''}" title="${G.pieceName(s, piece)}${p.alive ? '' : ' — погиб'}"${!myTurn() || !p.alive || !available.has(p.pid) ? ' disabled' : ''}>${pic(pieceImg(piece), '●', 'ti')}<span class="pirate-choice"><b>${label}</b>${selected ? '<small>▲ выбран</small>' : ''}</span></button>`;
+  });
+  while (slots.length < 3) slots.push(`<button type="button" class="mobile-pirate" disabled aria-label="Нет пирата">—</button>`);
+  slots.push(`<button id="mobileCancel" type="button" aria-label="Отменить выбор"${!myTurn() || sel == null && !plate ? ' disabled' : ''}>Отмена</button>`);
+  el.innerHTML = slots.join('');
+  el.querySelectorAll('.mobile-pirate:not([disabled])').forEach(button => button.onclick = () => choose(+button.dataset.pid));
+  $('#mobileCancel').onclick = () => { sel = null; plate = null; withCoin = false; render(); };
 }
 function choose(pid) { sel = pid; const p = state.pirates[pid], c = p.carry; withCoin = c === G.TREASURE_VALUE ? 'T' : !!c; plate = null; render(); requestAnimationFrame(() => centerBoardCell(p.x, p.y)); }
 function renderCrew(s, moves) {
@@ -327,7 +358,7 @@ function updateOnlineDialog() {
 function goOnline(sess) {
   net?.stop(); net = { sess, type: 'online', connected: false, opponent: 'waiting', stop: null, gone: false };
   updateOnlineDialog();
-  state = null; lastCenteredTurn = null; mobileShipVisible = false; $('#mobileShipBtn').hidden = true; $('#board').innerHTML = ''; $('#me').closest('label').hidden = true; // не показывать прежнюю локальную партию (2p) до прихода состояния 1v1
+  state = null; lastCenteredTurn = null; $('#board').innerHTML = ''; $('#me').closest('label').hidden = true; // не показывать прежнюю локальную партию (2p) до прихода состояния 1v1
   net.stop = Net.connect(sess, msg => {
     state = msg.state; net.opponent = msg.opponent; showCode(msg.code);
     if (msg.opponent !== 'waiting' && $('#online').open) $('#online').close();
@@ -474,11 +505,10 @@ function click(x, y, targets) {
   render();
 }
 
-function start(mode) { if (!goLocal()) return; $('#crew').hidden = false; $('#turnDot').hidden = false; state = G.newGame({ mode, seed: Date.now() % 1e9, options: { houseCrocDeath: $('#optCroc').checked, archipelagoMissionary: $('#optArch').checked } }); sel = null; lastCenteredTurn = null; render(); }
+function start(mode) { if (!goLocal()) return; $('#crew').hidden = false; $('#turnDot').hidden = false; state = G.newGame({ mode, seed: Date.now() % 1e9, options: { houseCrocDeath: $('#optCroc').checked, archipelagoMissionary: $('#optArch').checked } }); sel = null; logExpanded = false; lastCenteredTurn = null; render(); }
 $('#coinBtn').onclick = () => { withCoin = V.nextCargo(G.legalMoves(state), sel, withCoin); render(); };
 $('#rumBtn').onclick = () => { sel = sel === 'rum' ? null : 'rum'; render(); };
 $('#shipBtn').onclick = () => { sel = sel === 'ship' ? null : 'ship'; render(); };
-$('#mobileShipBtn').onclick = () => { sel = 'ship'; render(); };
 $('#reviveBtn').onclick = () => { const m = G.legalMoves(G.publicState(state)).find(m => m.type === 'revive'); if (m) play(m); };
 $('#crewLeft').onclick = () => $('#crew').scrollBy({ left: -120, behavior: 'smooth' });
 $('#crewRight').onclick = () => $('#crew').scrollBy({ left: 120, behavior: 'smooth' });
@@ -501,6 +531,9 @@ function placeWakeBanner() {
   if (dialog) {
     const heading = dialog.querySelector('h2');
     if (el.parentElement !== dialog) dialog.insertBefore(el, heading?.nextSibling ?? dialog.firstChild);
+  } else if (state && compactLayout()) {
+    el.hidden = true;
+    if (el.parentElement !== document.body) document.body.append(el);
   } else if (el.parentElement !== document.body) document.body.append(el);
 }
 function wakeServer() {
@@ -508,7 +541,10 @@ function wakeServer() {
   if (awake) return Promise.resolve(true); if (waking) return waking;
   const el = $('#wake'), st = $('#wakeStatus'), again = $('#wakeRetry'); let t0 = Date.now(), tick = null;
   const show = phase => { st.textContent = V.wakeStatus(phase, Math.round((Date.now() - t0) / 1000)); again.hidden = phase !== 'fail'; el.dataset.phase = phase; };
-  waking = Net.wake({ onWait: () => { el.hidden = false; show('wait'); tick = setInterval(() => show('wait'), 1000); } }).then(ok => {
+  waking = Net.wake({ onWait: () => {
+    if (state && compactLayout() && !document.querySelector('dialog[open]')) return;
+    el.hidden = false; show('wait'); tick = setInterval(() => show('wait'), 1000);
+  } }).then(ok => {
     clearInterval(tick); waking = null; awake = ok;
     if (!el.hidden) { show(ok ? 'ok' : 'fail'); if (ok) setTimeout(() => { el.hidden = true; }, 2500); }
     return ok;
@@ -545,12 +581,11 @@ $('#codeIn').onkeydown = e => { if (e.key === 'Enter') $('#joinBtn').click(); };
 $('#leaveBtn').onclick = () => { if (!goLocal()) return; $('#online').close(); try { state = G.loadState(localStorage.getItem('jackal-save')); } catch { return start(V.DEFAULT_MODE); } render(); };
 addEventListener('jackal:backbutton', () => {
   const dialog = $('#online').open ? 'online' : $('#menu').open ? 'menu' : null;
-  switch (V.androidBackAction({ dialog, mobileMenu: !$('#mobileMenu').hidden, fitMode: compactLayout() && fitWholeBoard, logExpanded: compactLayout() && logExpanded, plate: !!plate, online: !!net, hasGame: !!state })) {
+  switch (V.androidBackAction({ dialog, mobileMenu: !$('#mobileMenu').hidden, logExpanded: compactLayout() && logExpanded, plate: !!plate, online: !!net, hasGame: !!state })) {
     case 'close-online': $('#online').close(); break;
     case 'close-menu': $('#menu').close(); break;
     case 'close-mobile-menu': setMobileMenu(false); break;
-    case 'height-fit': fitWholeBoard = false; logExpanded = false; $('#mobileScale').textContent = 'Масштаб поля: по высоте'; render(); break;
-    case 'collapse-log': logExpanded = false; applyMobileBoardLayout(); break;
+    case 'collapse-log': logExpanded = false; applyMobileBoardLayout(); $('#mobileLogToggle').setAttribute('aria-expanded', 'false'); break;
     case 'close-plate': plate = null; render(); break;
     case 'confirm-online-leave': if (confirm(LEAVE_Q)) $('#leaveBtn').click(); break;
     case 'confirm-game-exit': if (confirm('Выйти из партии?')) dispatchEvent(new Event('jackal:minimize')); break;
@@ -561,10 +596,12 @@ addEventListener('jackal:backbutton', () => {
 function renderEmpty() {
   state = null; sel = null; plate = null; const b = $('#board'); b.innerHTML = '';
   for (let y = 0; y < G.N; y++) for (let x = 0; x < G.N; x++) { const c = document.createElement('button'); c.type = 'button'; c.tabIndex = -1; c.disabled = true; c.className = 'cell ' + (V.isLandCell(x, y) ? 'closed' : 'sea'); c.style.gridArea = `${y + 1} / ${x + 1}`; c.setAttribute('aria-label', `${V.isLandCell(x, y) ? 'Закрытая клетка' : 'Море'}, столбец ${x + 1}, ряд ${y + 1}`); b.append(c); }
+  $('#mobilePirates').innerHTML = '<button disabled>П1</button><button disabled>П2</button><button disabled>П3</button><button id="mobileCancel" disabled>Отмена</button>';
   for (const id of ['#crew', '#banner', '#youAre']) $(id).hidden = true;
-  for (const id of ['#shipBtn', '#coinBtn', '#reviveBtn', '#rumBtn']) { $(id).hidden = true; $(id).disabled = true; }
-  $('#mobileShipBtn').hidden = true; $('#mobileScale').disabled = true;
-  $('#score').textContent = ''; $('#status').textContent = ''; $('#tileInfo').hidden = true; $('#tileInfo').textContent = ''; $('#turnText').textContent = ''; $('#turnPrefix').textContent = ''; $('#turnDot').hidden = true; $('#log').textContent = '';
+  for (const id of ['#shipBtn', '#coinBtn', '#reviveBtn', '#rumBtn', '#passBtn']) { $(id).hidden = true; $(id).disabled = true; }
+  $('#mobileScale').disabled = true;
+  $('#score').textContent = ''; $('#status').textContent = ''; $('#mobileStatus').textContent = ''; $('#mobileStatus').hidden = true; $('#logPreview').textContent = 'Журнал партии — коснитесь, чтобы открыть'; $('#logPreview').hidden = false; $('#mobileLogToggle').setAttribute('aria-expanded', 'false');
+  $('#tileInfo').hidden = true; $('#tileInfo').textContent = ''; $('#turnText').textContent = ''; $('#turnPrefix').textContent = ''; $('#turnDot').hidden = true; $('#log').textContent = ''; $('#log').hidden = true;
   $('#topScore').textContent = ''; $('#mobileScore').textContent = '';
   $('#mobileContinue').hidden = !V.resumeInfo(localStorage.getItem('jackal-save'));
   $('#me').closest('label').hidden = false; $('#banner').hidden = true;
@@ -584,12 +621,11 @@ function setMobileMenu(open) {
   $('#mobileMenuToggle').setAttribute('aria-expanded', String(open));
   if (open) $('#mobileMenuClose').focus(); else $('#mobileMenuToggle').focus();
 }
-function toggleBoardScale() {
+function fitMobileBoard() {
   if (!state) return;
-  fitWholeBoard = !fitWholeBoard;
-  logExpanded = false;
-  $('#mobileScale').textContent = `Масштаб поля: ${fitWholeBoard ? 'целиком' : 'по высоте'}`;
-  render();
+  $('#mobileScale').textContent = 'Вписать поле';
+  if (compactLayout()) applyMobileBoardLayout();
+  else fitBoard();
 }
 $('#mobileMenuToggle').onclick = () => setMobileMenu(true);
 $('#mobileMenuClose').onclick = () => setMobileMenu(false);
@@ -609,12 +645,14 @@ $('#mobileContinue').onclick = () => {
 $('#mobileNew').onclick = () => { setMobileMenu(false); $('#newBtn').click(); };
 $('#mobileSave').onclick = () => { setMobileMenu(false); $('#saveBtn').click(); };
 $('#mobileLoad').onclick = () => { setMobileMenu(false); $('#loadBtn').click(); };
-$('#mobileScale').onclick = () => { setMobileMenu(false); toggleBoardScale(); };
+$('#mobileScale').onclick = () => { setMobileMenu(false); fitMobileBoard(); };
 $('#mobileLeave').onclick = () => { setMobileMenu(false); $('#leaveBtn').click(); };
 $('#mobileMe').onchange = e => { $('#me').value = e.target.value; $('#me').dispatchEvent(new Event('change')); };
-$('#log').onclick = () => {
-  if (fitWholeBoard || !compactLayout()) return;
-  logExpanded = !logExpanded; applyMobileBoardLayout();
+$('#mobileLogToggle').onclick = () => {
+  if (!compactLayout()) return;
+  logExpanded = !logExpanded;
+  applyMobileBoardLayout();
+  $('#mobileLogToggle').setAttribute('aria-expanded', String(logExpanded));
 };
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#mobileMenu').hidden) setMobileMenu(false); });
 // первое нажатие где угодно снимает заметку (и после перезагрузки она видна до него)
