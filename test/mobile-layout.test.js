@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   boardGestureMoved, boardZoomLimits, clampBoardTransform, mobileBoardMetrics,
-  mobileBoardRotation, orientBoardCell, mobileActionSlots, toggleBoardZoom, zoomBoardAtPoint,
+  mobileActionSlots, toggleBoardZoom, zoomBoardAtPoint,
 } from '../src/mobile-layout.js';
 import * as V from '../src/view.js';
 import * as G from '../src/game.js';
@@ -14,16 +14,6 @@ test('the full 13×13 board fits the mobile board area at both required portrait
     assert.equal(layout.boardHeight, width);
     assert.ok(layout.cellSize > 0);
     assert.ok(layout.boardHeight <= height);
-  }
-});
-
-test('the active team ship is placed at the bottom without turning cell contents upside down', () => {
-  assert.equal(mobileBoardRotation(0), 0);
-  assert.deepEqual(orientBoardCell(6, 12, mobileBoardRotation(0)), { x: 6, y: 12 });
-  for (const [team, ship] of [[1, [0, 6]], [2, [6, 0]], [3, [12, 6]]]) {
-    const rotated = orientBoardCell(...ship, mobileBoardRotation(team));
-    assert.equal(rotated.x, 6);
-    assert.equal(rotated.y, 12);
   }
 });
 

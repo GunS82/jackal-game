@@ -137,13 +137,18 @@ async function inspectMobileLayout(page) {
         white: rect(board.querySelector('[data-cell="6,12"]')),
         black: rect(board.querySelector('[data-cell="6,0"]')),
       },
+      boardTransform: (() => {
+        const matrix = new DOMMatrixReadOnly(getComputedStyle(board).transform);
+        return { b: matrix.b, c: matrix.c };
+      })(),
+      shipImageTransforms: [...board.querySelectorAll('.ship-image')].map(image => image.style.transform),
       boardGrid: getComputedStyle(board).gridTemplateColumns,
       controlsVisible: getComputedStyle(document.querySelector('#mobileControls')).display !== 'none',
     };
   });
 }
 
-test('mobile zoom, hot-seat rotation, and desktop layout work without overlaps', async () => {
+test('mobile zoom, fixed hot-seat orientation, and desktop layout work without overlaps', async () => {
   const states = createFixtureStates();
   const screenshots = process.env.MOBILE_LAYOUT_SCREENSHOT_DIR
     ? resolve(process.cwd(), process.env.MOBILE_LAYOUT_SCREENSHOT_DIR)
@@ -157,6 +162,7 @@ test('mobile zoom, hot-seat rotation, and desktop layout work without overlaps',
   try {
     browser = await chromium.launch({ headless: true, channel: 'chromium' });
     const expectedActionXs = new Map();
+    const expectedShipPositions = new Map();
 
     for (const viewport of [{ width: 412, height: 915 }, { width: 360, height: 780 }]) {
       for (const turn of ['white', 'black']) {
@@ -205,15 +211,18 @@ test('mobile zoom, hot-seat rotation, and desktop layout work without overlaps',
           assert.equal(layout.selectedPirate?.outline, 'none', 'selected pirate uses the gold selection styling');
           assert.ok(layout.actions.every(button => !button.hidden && button.width >= 44 && button.height >= 44), 'all fixed action slots stay visible and at least 44×44px');
           assert.ok(layout.actions.every((button, index) => index === 0 || layout.actions[index - 1].x < button.x), 'action slots keep their left-to-right order');
+          assert.ok(Math.abs(layout.boardTransform.b) < 0.001 && Math.abs(layout.boardTransform.c) < 0.001, 'mobile board transform must not rotate the field');
+          assert.ok(layout.shipImageTransforms.every(transform => !transform), 'ship icons keep their fixed orientation');
           const actionXs = layout.actions.map(button => button.x);
           const expectedXs = expectedActionXs.get(viewport.width);
           if (expectedXs) assert.deepEqual(actionXs, expectedXs, 'action slots do not move between turns');
           else expectedActionXs.set(viewport.width, actionXs);
 
-          const activeShip = turn === 'white' ? layout.teamShips.white : layout.teamShips.black;
-          const otherShip = turn === 'white' ? layout.teamShips.black : layout.teamShips.white;
-          assert.ok(Math.abs(activeShip.bottom - layout.boardBox.bottom) <= 1, `${turn}'s ship should be at the bottom edge`);
-          assert.ok(Math.abs(otherShip.top - layout.boardBox.top) <= 1, `the other ship should remain at the top edge`);
+          assert.ok(Math.abs(layout.teamShips.white.bottom - layout.boardBox.bottom) <= 1, 'the white ship stays at the bottom edge on every turn');
+          assert.ok(Math.abs(layout.teamShips.black.top - layout.boardBox.top) <= 1, 'the black ship stays at the top edge on every turn');
+          const expectedShips = expectedShipPositions.get(viewport.width);
+          if (expectedShips) assert.deepEqual(layout.teamShips, expectedShips, `the board orientation stays identical on ${turn}'s turn`);
+          else expectedShipPositions.set(viewport.width, layout.teamShips);
 
           await page.locator('#mobileLogToggle').click();
           await page.waitForFunction(() => document.querySelector('#gameScreen').classList.contains('log-expanded'));

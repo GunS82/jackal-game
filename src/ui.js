@@ -6,7 +6,7 @@ import { IS_REMOTE, SERVER_CONFIGURED } from './config.js';
 import { ASSETS, ARROW_GLYPH, ROLE_BADGE, tileImg, pirateImg, pieceImg, shipImg, coinImg, treasureImg, hlImg } from './assets.js';
 import {
   boardGestureMoved, boardZoomLimits, clampBoardTransform, mobileBoardMetrics,
-  mobileBoardRotation, orientBoardCell, mobileActionSlots, toggleBoardZoom, zoomBoardAtPoint,
+  mobileActionSlots, toggleBoardZoom, zoomBoardAtPoint,
 } from './mobile-layout.js';
 const $ = s => document.querySelector(s);
 let plate = null; // плашка выбора пирата: { x, y, pids }
@@ -29,12 +29,12 @@ function pic(src, emoji, cls = '', rot = 0) {
   if (!rot) return `<img class="${cls}" src="${src}" alt="" onerror="this.outerHTML='<span class=emo>${emoji}</span>'">`;
   return `<img class="${cls}" src="${src}" alt="" style="transform:rotate(${rot * 90}deg)" onerror="this.outerHTML='<span class=emo>${emoji}</span>'">`;
 }
-function tileHTML(t, boardRotation = 0) {
+function tileHTML(t) {
   if (!t.open) return pic(tileImg(t), ASSETS.closed.emoji, 'tile');
   let h;
   if (t.kind === 'arrow' || t.kind === 'cannon') {
     const r = G.tileRotation(t), glyph = t.dirs.map(d => ARROW_GLYPH[d.join(',')]).join('');
-    h = r == null ? `<span class="arrows" style="transform:rotate(${boardRotation * 90}deg)">${glyph}</span>` : pic(tileImg(t), glyph, 'tile', r + boardRotation);
+    h = r == null ? `<span class="arrows">${glyph}</span>` : pic(tileImg(t), glyph, 'tile', r);
   } else h = pic(tileImg(t), ASSETS[t.kind]?.emoji ?? '', `tile${t.kind === 'plane' && t.used ? ' plane-used' : ''}`);
   const details = V.tileDetails(t);
   h += `<small class="tile-label">${details.name.toLocaleLowerCase('ru-RU')}</small>`;
@@ -247,18 +247,14 @@ function render() {
   const targets = V.plateHidesMoves(plate, sel) ? [] : V.targets(moves, { s, sel, withCoin }); // открыта плашка, пират не выбран — без подсветки
   const compact = compactLayout();
   if (compact) placeWakeBanner();
-  const perspectiveTeam = net ? (G.teamsOfPlayer(s, net.sess.player)[0] ?? s.current)
-    : me === 'all' ? s.current : (G.teamsOfPlayer(s, +me)[0] ?? s.current);
-  const boardRotation = compact ? mobileBoardRotation(perspectiveTeam) : 0;
   const b = $('#board'), focusedCell = b.contains(document.activeElement) ? document.activeElement.dataset.cell : null; b.innerHTML = '';
   for (let y = 0; y < G.N; y++) for (let x = 0; x < G.N; x++) {
     const c = document.createElement('button'); c.type = 'button'; c.className = 'cell';
-    const visual = orientBoardCell(x, y, boardRotation, G.N);
-    c.dataset.cell = `${x},${y}`; c.style.gridArea = `${visual.y + 1} / ${visual.x + 1}`; // содержимое остаётся читаемым, поворачиваются координаты поля
+    c.dataset.cell = `${x},${y}`;
     const t = G.tileAt(s, x, y), details = t ? V.tileDetails(t) : null;
-    if (t) { c.classList.add(t.open ? 'open' : 'closed', 'k-' + t.kind); if (t.used) c.classList.add('used'); c.innerHTML = tileHTML(t, boardRotation); c.title = `${details.name}. ${details.rule}`; } else c.classList.add('sea');
+    if (t) { c.classList.add(t.open ? 'open' : 'closed', 'k-' + t.kind); if (t.used) c.classList.add('used'); c.innerHTML = tileHTML(t); c.title = `${details.name}. ${details.rule}`; } else c.classList.add('sea');
     const sh = G.shipAt(s, x, y);
-    if (sh >= 0) { c.classList.add('ship'); c.style.setProperty('--team', G.TEAMS[sh].color); c.insertAdjacentHTML('afterbegin', pic(shipImg(sh), '⛵', 'tile ship-image', boardRotation)); }
+    if (sh >= 0) { c.classList.add('ship'); c.style.setProperty('--team', G.TEAMS[sh].color); c.insertAdjacentHTML('afterbegin', pic(shipImg(sh), '⛵', 'tile ship-image')); }
     if (t?.coins || t?.treasure) c.classList.add('has-badge');
     const ps = s.pirates.filter(p => p.alive && p.x === x && p.y === y);
     const st = V.stacks(s, ps, sel);
