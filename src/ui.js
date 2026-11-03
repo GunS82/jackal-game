@@ -4,9 +4,11 @@ import * as Net from './net.js';
 import { stateMessage } from './bluetooth-protocol.js';
 import { IS_REMOTE, SERVER_CONFIGURED } from './config.js';
 import { ASSETS, ARROW_GLYPH, ROLE_BADGE, tileImg, pirateImg, pieceImg, shipImg, coinImg, treasureImg, hlImg } from './assets.js';
+import { mobileBoardMetrics, availableMobileActions } from './mobile-layout.js';
 const $ = s => document.querySelector(s);
 let plate = null; // плашка выбора пирата: { x, y, pids }
 let state = null, sel = null, withCoin = false, notice = '';
+let fitWholeBoard = false, logExpanded = false, lastCenteredTurn = null, noticeTimer = null, mobileShipVisible = false;
 const boardView = { scale: 1, minScale: .3, maxScale: 3, x: 0, y: 0 };
 const pointers = new Map();
 let gesture = null, longPressTimer = null, suppressCellClickUntil = 0;
@@ -38,6 +40,32 @@ function tileHTML(t) {
 const myTurn = () => net ? !state.over && G.controllerOf(state) === net.sess.player : me === 'all' || G.controllerOf(state) === +me;
 
 function viewportSize() { const v = $('#boardViewport'); return { v, w: v.clientWidth, h: v.clientHeight, bw: $('#board').offsetWidth, bh: $('#board').offsetHeight }; }
+function compactLayout() { return matchMedia('(max-width: 600px), (orientation: portrait)').matches; }
+function clearMobileBoardSizing() {
+  const b = $('#board');
+  for (const property of ['grid-template-columns', 'grid-template-rows', 'width', 'height', '--cell-size']) b.style.removeProperty(property);
+}
+function applyMobileBoardLayout() {
+  const root = $('#gameScreen'), v = $('#boardViewport'), b = $('#board');
+  const compact = compactLayout();
+  root.classList.toggle('mobile-layout', compact);
+  root.classList.toggle('fit-whole', compact && fitWholeBoard);
+  root.classList.toggle('log-expanded', compact && (fitWholeBoard || logExpanded));
+  if (!compact || !v.clientWidth || !v.clientHeight) return;
+  const gap = 2, width = v.clientWidth;
+  const metrics = mobileBoardMetrics({ viewportWidth: width, viewportHeight: window.innerHeight, mode: fitWholeBoard ? 'fit' : 'height', availableHeight: v.clientHeight, gap });
+  const size = metrics.cellSize;
+  const rowSizes = Array.from({ length: G.N }, (_, row) => `${fitWholeBoard && (row === 0 || row === G.N - 1) ? size / 2 : size}px`);
+  b.style.gridTemplateColumns = `repeat(${G.N}, ${size}px)`;
+  b.style.gridTemplateRows = rowSizes.join(' ');
+  b.style.width = `${metrics.boardWidth}px`;
+  b.style.height = `${metrics.boardHeight}px`;
+  b.style.setProperty('--cell-size', `${size}px`);
+  b.style.transform = 'none';
+  boardView.scale = 1; boardView.x = 0; boardView.y = 0;
+  $('#zoomLevel').value = fitWholeBoard ? 'Целиком' : 'По высоте';
+  $('#zoomIn').disabled = true; $('#zoomOut').disabled = true;
+}
 function clampBoardView() {
   const { w, h, bw, bh } = viewportSize(); if (!w || !h || !bw || !bh) return;
   boardView.scale = Math.max(boardView.minScale, Math.min(boardView.maxScale, boardView.scale));
@@ -50,6 +78,7 @@ function clampBoardView() {
   $('#zoomIn').disabled = boardView.scale >= boardView.maxScale - .001;
 }
 function fitBoard() {
+  if (compactLayout()) { applyMobileBoardLayout(); return; }
   const { w, h, bw, bh } = viewportSize(); if (!w || !h || !bw || !bh) return;
   const fit = Math.min(w / bw, h / bh, 1);
   boardView.minScale = Math.max(.2, fit); boardView.scale = fit;
@@ -66,10 +95,27 @@ function zoomBoard(scale, focusX, focusY) {
 }
 function centerBoardCell(x, y) {
   const cell = $(`#board [data-cell="${x},${y}"]`); if (!cell) return;
-  const v = $('#boardViewport').getBoundingClientRect(), c = cell.getBoundingClientRect();
+  const viewport = $('#boardViewport'), v = viewport.getBoundingClientRect(), c = cell.getBoundingClientRect();
+  if (compactLayout()) {
+    viewport.scrollTo({ left: Math.max(0, viewport.scrollLeft + c.left + c.width / 2 - (v.left + v.width / 2)), behavior: 'smooth' });
+    return;
+  }
   boardView.x += v.left + v.width / 2 - (c.left + c.width / 2);
   boardView.y += v.top + v.height / 2 - (c.top + c.height / 2);
   clampBoardView();
+}
+function updateMobileShipButton(show) {
+  const button = $('#mobileShipBtn'), viewport = $('#boardViewport');
+  mobileShipVisible = !!show && !!state;
+  button.hidden = !mobileShipVisible;
+  if (!mobileShipVisible) return;
+  const ship = state.ships[state.current], cell = $(`#board [data-cell="${ship.x},${ship.y}"]`);
+  if (!cell) return;
+  const v = viewport.getBoundingClientRect(), c = cell.getBoundingClientRect();
+  const left = viewport.scrollLeft + c.left - v.left + c.width / 2 - button.offsetWidth / 2;
+  const top = c.top - v.top + c.height / 2 - button.offsetHeight / 2;
+  button.style.left = `${Math.max(4, Math.min(viewport.clientWidth - button.offsetWidth - 4, left))}px`;
+  button.style.top = `${Math.max(4, Math.min(viewport.clientHeight - button.offsetHeight - 4, top))}px`;
 }
 function showTileInfoAt(x, y) {
   const info = $('#tileInfo'), tile = state && G.tileAt(state, x, y);
@@ -82,13 +128,14 @@ function setupBoardNavigation() {
   $('#zoomIn').onclick = () => zoomBoard(boardView.scale * 1.25);
   $('#zoomOut').onclick = () => zoomBoard(boardView.scale / 1.25);
   $('#zoomFit').onclick = fitBoard;
-  v.addEventListener('wheel', e => { e.preventDefault(); zoomBoard(boardView.scale * (e.deltaY < 0 ? 1.15 : 1 / 1.15), e.clientX, e.clientY); }, { passive: false });
+  v.addEventListener('wheel', e => { if (compactLayout()) return; e.preventDefault(); zoomBoard(boardView.scale * (e.deltaY < 0 ? 1.15 : 1 / 1.15), e.clientX, e.clientY); }, { passive: false });
   v.addEventListener('pointerdown', e => {
     const cell = e.target.closest?.('.cell'), key = cell?.dataset.cell;
     clearTimeout(longPressTimer); longPressTimer = null;
     if (key && state && G.tileAt(state, ...key.split(',').map(Number))?.open) {
       longPressTimer = setTimeout(() => { showTileInfoAt(...key.split(',').map(Number)); suppressCellClickUntil = Date.now() + 400; if (gesture) gesture.longPressed = true; }, 520);
     }
+    if (compactLayout()) return; // retain native horizontal touch scrolling on phones
     v.setPointerCapture(e.pointerId); pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pointers.size === 1) gesture = { type: 'pan', startX: e.clientX, startY: e.clientY, x: boardView.x, y: boardView.y, moved: false };
     else if (pointers.size === 2) {
@@ -119,8 +166,13 @@ function setupBoardNavigation() {
     else gesture = null;
   };
   v.addEventListener('pointerup', pointerEnd); v.addEventListener('pointercancel', pointerEnd);
-  const ro = new ResizeObserver(() => fitBoard()); ro.observe(v);
-  requestAnimationFrame(fitBoard);
+  const resizeLayout = () => {
+    if (compactLayout()) { applyMobileBoardLayout(); updateMobileShipButton(mobileShipVisible); }
+    else { updateMobileShipButton(false); clearMobileBoardSizing(); fitBoard(); }
+  };
+  const ro = new ResizeObserver(resizeLayout); ro.observe(v);
+  addEventListener('resize', resizeLayout);
+  requestAnimationFrame(() => compactLayout() ? applyMobileBoardLayout() : fitBoard());
 }
 
 function render() {
@@ -163,16 +215,36 @@ function render() {
   const T = G.TEAMS[s.current];
   const hp = V.headerParts(s, { myTurn: myTurn(), online: !!net }), dot = $('#turnDot');
   dot.hidden = !!s.over; dot.style.background = T.color;
-  if ($('#turnPrefix').textContent !== hp.prefix) $('#turnPrefix').textContent = hp.prefix;
-  if ($('#turnText').textContent !== hp.text) $('#turnText').textContent = hp.text;
+  const compact = compactLayout();
+  $('#turn').style.borderColor = compact ? '#e3b23c' : '';
+  $('#turnPrefix').textContent = compact ? '' : hp.prefix;
+  $('#turnText').textContent = compact ? V.mobileHeaderText(s, { myTurn: myTurn() }) : hp.text;
   $('#status').textContent = notice || V.plateHint(plate, sel, myTurn()) || (sel == null ? V.skipNotice(s) : null) || V.coinHint(moves, { sel, withCoin }) || V.selectHint(s, sel, { myTurn: myTurn() }) || ''; notice = '';
+  if (compact && $('#status').textContent) {
+    clearTimeout(noticeTimer); const message = $('#status').textContent;
+    noticeTimer = setTimeout(() => { if ($('#status').textContent === message) $('#status').textContent = ''; }, 3000);
+  }
   const sc = G.sideScores(s);
   $('#score').innerHTML = Object.keys(sc).map(k => `${G.sideName(s, +k)}: <b>${sc[k]}</b>`).join(' · ') + ` · осталось ${G.coinsLeft(s)} · утонуло ${s.lost} · ром: ${G.activeTeams(s.mode).map(t => s.rum[t]).join('/')}`;
+  $('#topScore').textContent = V.mobileScore(s);
+  $('#mobileScore').textContent = $('#score').textContent;
+  $('#mobileScale').disabled = false;
+  $('#mobileScale').textContent = `Масштаб поля: ${fitWholeBoard ? 'целиком' : 'по высоте'}`;
+  $('#mobileContinue').hidden = false;
   const bs = V.buttons(s, moves, { sel, withCoin, myTurn: myTurn() });
-  for (const [id, b] of [['#shipBtn', bs.ship], ['#coinBtn', bs.coin], ['#reviveBtn', bs.revive], ['#rumBtn', bs.rum]]) { const el = $(id); el.disabled = b.disabled; el.textContent = b.label; el.setAttribute('aria-pressed', b.pressed); el.hidden = false; }
+  const shownActions = new Set(availableMobileActions(bs));
+  for (const [id, key, button] of [['#shipBtn', 'ship', bs.ship], ['#coinBtn', 'coin', bs.coin], ['#reviveBtn', 'revive', bs.revive], ['#rumBtn', 'rum', bs.rum]]) {
+    const el = $(id); el.disabled = button.disabled; el.textContent = button.label; el.setAttribute('aria-pressed', button.pressed);
+    el.hidden = compact ? key === 'ship' || !shownActions.has(key) : false;
+  }
   $('#me').value = me;
-  { const es = V.logEntries(s, 5), esc = t => t.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]); $('#log').hidden = !es.length;
-    $('#log').innerHTML = '<h3>Журнал</h3><ol>' + es.map(e => `<li>${e.n ? `<span class="ln">№${e.n}</span>` : ''}${e.team != null ? `<i class="dot" style="--team:${G.TEAMS[e.team].color}"></i>` : ''}<span class="lt">${esc(e.text)}</span></li>`).join('') + '</ol>'; }
+  $('#mobileMe').value = me;
+  const logLimit = compact && fitWholeBoard
+    ? mobileBoardMetrics({ viewportWidth: $('#boardViewport').clientWidth, viewportHeight: window.innerHeight, mode: 'fit' }).logLines
+    : 5;
+  { const es = V.logEntries(s, logLimit), esc = t => t.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]); $('#log').hidden = !es.length && !(compact && fitWholeBoard);
+    const lines = es.map(e => `<li>${e.n ? `<span class="ln">№${e.n}</span>` : ''}${e.team != null ? `<i class="dot" style="--team:${G.TEAMS[e.team].color}"></i>` : ''}<span class="lt">${esc(e.text)}</span></li>`).join('');
+    $('#log').innerHTML = '<h3>Журнал</h3><ol>' + (lines || (compact && fitWholeBoard ? '<li><span class="lt">Журнал партии</span></li>' : '')) + '</ol>'; }
   if (s.pending && (!s.pending.type || s.pending.type === 'cave') && myTurn() && sel !== s.pending.pid) { sel = s.pending.pid; withCoin = s.pending.treasure ? 'T' : s.pending.coin; return render(); }
   const ya = $('#youAre'); ya.hidden = !net; if (net) { ya.textContent = V.youAreText(s, net.sess.player); ya.style.borderColor = G.TEAMS[G.teamsOfPlayer(s, net.sess.player)[0]]?.color ?? ''; }
   $('#freeNote').textContent = V.FREE_SHORT;
@@ -186,6 +258,15 @@ function render() {
   } else plate = null;
   renderCrew(s, moves);
   renderBanner();
+  applyMobileBoardLayout();
+  updateMobileShipButton(compact && !bs.ship.disabled && (sel === 'ship' || (typeof sel === 'number' && G.onShip(s, s.pirates[sel]))));
+  const turnKey = `${s.turn}:${s.current}`;
+  if (turnKey !== lastCenteredTurn) {
+    lastCenteredTurn = turnKey;
+    const first = moves.find(m => m.type === 'move' && m.pid != null) ?? moves.find(m => m.type === 'ship') ?? moves[0];
+    const p = first?.pid != null ? s.pirates[first.pid] : null;
+    if (first && compact) requestAnimationFrame(() => centerBoardCell(p?.x ?? first.x, p?.y ?? first.y));
+  }
   if (!net) localStorage.setItem('jackal-save', G.serialize(s));
 }
 function choose(pid) { sel = pid; const p = state.pirates[pid], c = p.carry; withCoin = c === G.TREASURE_VALUE ? 'T' : !!c; plate = null; render(); requestAnimationFrame(() => centerBoardCell(p.x, p.y)); }
@@ -196,6 +277,13 @@ function renderCrew(s, moves) {
   el.innerHTML = V.crewPanels(s, { player: net ? net.sess.player : me === 'all' ? null : +me }).map(cp => { const color = G.TEAMS[cp.team].color;
     return `<section class="panel${cp.current ? ' current' : ''}" style="--team:${color}"><header><span>${cp.label}</span><span class="sc">${pic(coinImg, '🪙', 'ci')} ${cp.score}</span></header><div class="toks">${cp.regular.map(t => tok(t, color)).join('')}${cp.chars.length ? '<span class="div"></span>' + cp.chars.map(t => tok(t, color)).join('') : ''}</div></section>`; }).join('');
   el.querySelectorAll('.tok:not([disabled])').forEach(b => b.onclick = () => choose(+b.dataset.pid));
+  el.onscroll = updateCrewScrollButtons;
+  requestAnimationFrame(updateCrewScrollButtons);
+}
+function updateCrewScrollButtons() {
+  const el = $('#crew'), overflow = el.scrollWidth > el.clientWidth + 1;
+  $('#crewLeft').hidden = !overflow || el.scrollLeft < 2;
+  $('#crewRight').hidden = !overflow || el.scrollLeft + el.clientWidth >= el.scrollWidth - 2;
 }
 function renderBanner() {
   const el = $('#banner');
@@ -233,11 +321,13 @@ function updateOnlineDialog() {
     ? 'Игра по Bluetooth. Ждём подключения соперника.' : 'Игра идёт по Bluetooth без интернета.';
   $('#leaveBtn').hidden = !net;
   $('#leaveBtn').textContent = nearby ? 'Выйти из Bluetooth-партии' : 'Выйти из онлайн-партии';
+  $('#mobileLeave').hidden = !net;
+  $('#mobileLeave').textContent = net?.type === 'bluetooth' ? 'Выйти из Bluetooth-партии' : 'Выйти из онлайн-игры';
 }
 function goOnline(sess) {
   net?.stop(); net = { sess, type: 'online', connected: false, opponent: 'waiting', stop: null, gone: false };
   updateOnlineDialog();
-  state = null; $('#board').innerHTML = ''; $('#me').closest('label').hidden = true; // не показывать прежнюю локальную партию (2p) до прихода состояния 1v1
+  state = null; lastCenteredTurn = null; mobileShipVisible = false; $('#mobileShipBtn').hidden = true; $('#board').innerHTML = ''; $('#me').closest('label').hidden = true; // не показывать прежнюю локальную партию (2p) до прихода состояния 1v1
   net.stop = Net.connect(sess, msg => {
     state = msg.state; net.opponent = msg.opponent; showCode(msg.code);
     if (msg.opponent !== 'waiting' && $('#online').open) $('#online').close();
@@ -379,15 +469,19 @@ function click(x, y, targets) {
   const mine = state.pirates.filter(p => p.alive && p.x === x && p.y === y && p.team === state.current && G.pirateMoves(state, p).length);
   if (mine.length > 1) { plate = { x, y, pids: mine.map(p => p.id) }; if (!mine.some(p => p.id === sel)) sel = null; } // несколько своих — плашка выбора
   else if (mine.length) { plate = null; return choose(mine[0].id); }
+  else if (G.shipAt(state, x, y) === state.current && G.legalMoves(G.publicState(state)).some(m => m.type === 'ship')) { sel = 'ship'; plate = null; }
   else { sel = null; plate = null; notice = V.drunkNotice(state, x, y) || V.turnNotice(state, x, y) || ''; }
   render();
 }
 
-function start(mode) { if (!goLocal()) return; $('#crew').hidden = false; $('#turnDot').hidden = false; state = G.newGame({ mode, seed: Date.now() % 1e9, options: { houseCrocDeath: $('#optCroc').checked, archipelagoMissionary: $('#optArch').checked } }); sel = null; render(); }
+function start(mode) { if (!goLocal()) return; $('#crew').hidden = false; $('#turnDot').hidden = false; state = G.newGame({ mode, seed: Date.now() % 1e9, options: { houseCrocDeath: $('#optCroc').checked, archipelagoMissionary: $('#optArch').checked } }); sel = null; lastCenteredTurn = null; render(); }
 $('#coinBtn').onclick = () => { withCoin = V.nextCargo(G.legalMoves(state), sel, withCoin); render(); };
 $('#rumBtn').onclick = () => { sel = sel === 'rum' ? null : 'rum'; render(); };
 $('#shipBtn').onclick = () => { sel = sel === 'ship' ? null : 'ship'; render(); };
+$('#mobileShipBtn').onclick = () => { sel = 'ship'; render(); };
 $('#reviveBtn').onclick = () => { const m = G.legalMoves(G.publicState(state)).find(m => m.type === 'revive'); if (m) play(m); };
+$('#crewLeft').onclick = () => $('#crew').scrollBy({ left: -120, behavior: 'smooth' });
+$('#crewRight').onclick = () => $('#crew').scrollBy({ left: 120, behavior: 'smooth' });
 $('#me').onchange = e => { me = e.target.value; localStorage.setItem('jackal-me', me); sel = null; render(); };
 $('#newBtn').onclick = () => showMenu();
 document.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => { start(b.dataset.mode); $('#menu').close(); });
@@ -399,7 +493,7 @@ $('#loadBtn').onclick = () => {
   else fileConfirmed = !V.localInProgress(state) || confirm(V.LOSE_LOCAL_Q); // локально: спросить ДО окна выбора файла
   if (fileConfirmed) $('#file').click();
 };
-$('#file').onchange = async e => { const f = e.target.files[0]; if (!f) return; try { if (!goLocal(fileConfirmed)) return; state = G.loadState(await f.text()); sel = null; render(); } catch (err) { alert(err.message); } e.target.value = ''; };
+$('#file').onchange = async e => { const f = e.target.files[0]; if (!f) return; try { if (!goLocal(fileConfirmed)) return; state = G.loadState(await f.text()); sel = null; lastCenteredTurn = null; render(); } catch (err) { alert(err.message); } e.target.value = ''; };
 // v0.5.19: плашка статуса сервера — до ответа /health.
 let awake = null, waking = null;
 function placeWakeBanner() {
@@ -451,11 +545,15 @@ $('#codeIn').onkeydown = e => { if (e.key === 'Enter') $('#joinBtn').click(); };
 $('#leaveBtn').onclick = () => { if (!goLocal()) return; $('#online').close(); try { state = G.loadState(localStorage.getItem('jackal-save')); } catch { return start(V.DEFAULT_MODE); } render(); };
 addEventListener('jackal:backbutton', () => {
   const dialog = $('#online').open ? 'online' : $('#menu').open ? 'menu' : null;
-  switch (V.androidBackAction({ dialog, plate: !!plate, online: !!net })) {
+  switch (V.androidBackAction({ dialog, mobileMenu: !$('#mobileMenu').hidden, fitMode: compactLayout() && fitWholeBoard, logExpanded: compactLayout() && logExpanded, plate: !!plate, online: !!net, hasGame: !!state })) {
     case 'close-online': $('#online').close(); break;
     case 'close-menu': $('#menu').close(); break;
+    case 'close-mobile-menu': setMobileMenu(false); break;
+    case 'height-fit': fitWholeBoard = false; logExpanded = false; $('#mobileScale').textContent = 'Масштаб поля: по высоте'; render(); break;
+    case 'collapse-log': logExpanded = false; applyMobileBoardLayout(); break;
     case 'close-plate': plate = null; render(); break;
     case 'confirm-online-leave': if (confirm(LEAVE_Q)) $('#leaveBtn').click(); break;
+    case 'confirm-game-exit': if (confirm('Выйти из партии?')) dispatchEvent(new Event('jackal:minimize')); break;
     case 'minimize': dispatchEvent(new Event('jackal:minimize')); break;
   }
 });
@@ -464,7 +562,11 @@ function renderEmpty() {
   state = null; sel = null; plate = null; const b = $('#board'); b.innerHTML = '';
   for (let y = 0; y < G.N; y++) for (let x = 0; x < G.N; x++) { const c = document.createElement('button'); c.type = 'button'; c.tabIndex = -1; c.disabled = true; c.className = 'cell ' + (V.isLandCell(x, y) ? 'closed' : 'sea'); c.style.gridArea = `${y + 1} / ${x + 1}`; c.setAttribute('aria-label', `${V.isLandCell(x, y) ? 'Закрытая клетка' : 'Море'}, столбец ${x + 1}, ряд ${y + 1}`); b.append(c); }
   for (const id of ['#crew', '#banner', '#youAre']) $(id).hidden = true;
+  for (const id of ['#shipBtn', '#coinBtn', '#reviveBtn', '#rumBtn']) { $(id).hidden = true; $(id).disabled = true; }
+  $('#mobileShipBtn').hidden = true; $('#mobileScale').disabled = true;
   $('#score').textContent = ''; $('#status').textContent = ''; $('#tileInfo').hidden = true; $('#tileInfo').textContent = ''; $('#turnText').textContent = ''; $('#turnPrefix').textContent = ''; $('#turnDot').hidden = true; $('#log').textContent = '';
+  $('#topScore').textContent = ''; $('#mobileScore').textContent = '';
+  $('#mobileContinue').hidden = !V.resumeInfo(localStorage.getItem('jackal-save'));
   $('#me').closest('label').hidden = false; $('#banner').hidden = true;
 }
 // Главное меню; сохранённая локальная партия — только по кнопке «Продолжить».
@@ -476,9 +578,48 @@ function showMenu(note = sessionStorage.getItem(V.NOTE_KEY) || '') {
   if (!$('#menu').open) $('#menu').showModal();
   placeWakeBanner();
 }
+function setMobileMenu(open) {
+  const menu = $('#mobileMenu');
+  menu.hidden = !open;
+  $('#mobileMenuToggle').setAttribute('aria-expanded', String(open));
+  if (open) $('#mobileMenuClose').focus(); else $('#mobileMenuToggle').focus();
+}
+function toggleBoardScale() {
+  if (!state) return;
+  fitWholeBoard = !fitWholeBoard;
+  logExpanded = false;
+  $('#mobileScale').textContent = `Масштаб поля: ${fitWholeBoard ? 'целиком' : 'по высоте'}`;
+  render();
+}
+$('#mobileMenuToggle').onclick = () => setMobileMenu(true);
+$('#mobileMenuClose').onclick = () => setMobileMenu(false);
+$('#mobileMenuBackdrop').onclick = () => setMobileMenu(false);
+let drawerSwipeStart = null;
+$('.mobile-drawer').addEventListener('pointerdown', e => { drawerSwipeStart = [e.clientX, e.clientY]; });
+$('.mobile-drawer').addEventListener('pointerup', e => {
+  if (!drawerSwipeStart) return;
+  const dx = e.clientX - drawerSwipeStart[0], dy = e.clientY - drawerSwipeStart[1]; drawerSwipeStart = null;
+  if (dx < -60 && Math.abs(dx) > Math.abs(dy) * 1.3) setMobileMenu(false);
+});
+$('.mobile-drawer').addEventListener('pointercancel', () => { drawerSwipeStart = null; });
+$('#mobileContinue').onclick = () => {
+  setMobileMenu(false);
+  if (!state && V.resumeInfo(localStorage.getItem('jackal-save'))) $('#continueBtn').click();
+};
+$('#mobileNew').onclick = () => { setMobileMenu(false); $('#newBtn').click(); };
+$('#mobileSave').onclick = () => { setMobileMenu(false); $('#saveBtn').click(); };
+$('#mobileLoad').onclick = () => { setMobileMenu(false); $('#loadBtn').click(); };
+$('#mobileScale').onclick = () => { setMobileMenu(false); toggleBoardScale(); };
+$('#mobileLeave').onclick = () => { setMobileMenu(false); $('#leaveBtn').click(); };
+$('#mobileMe').onchange = e => { $('#me').value = e.target.value; $('#me').dispatchEvent(new Event('change')); };
+$('#log').onclick = () => {
+  if (fitWholeBoard || !compactLayout()) return;
+  logExpanded = !logExpanded; applyMobileBoardLayout();
+};
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#mobileMenu').hidden) setMobileMenu(false); });
 // первое нажатие где угодно снимает заметку (и после перезагрузки она видна до него)
 addEventListener('pointerdown', () => { if (!sessionStorage.getItem(V.NOTE_KEY)) return; sessionStorage.removeItem(V.NOTE_KEY); const n = $('#menuNote'); n.hidden = true; n.textContent = ''; }, true); // текст убрать, чтобы скринридер не читал
-$('#continueBtn').onclick = () => { if (!goLocal()) return; try { state = G.loadState(localStorage.getItem('jackal-save')); sel = null; plate = null; $('#crew').hidden = false; $('#menu').close(); render(); } catch (e) { alert(e.message); } };
+$('#continueBtn').onclick = () => { if (!goLocal()) return; try { state = G.loadState(localStorage.getItem('jackal-save')); sel = null; plate = null; lastCenteredTurn = null; $('#crew').hidden = false; $('#menu').close(); render(); } catch (e) { alert(e.message); } };
 $('#menu').addEventListener('close', () => { placeWakeBanner(); if (!state && !net && !$('#online').open && !$('#nearby').open) start(V.DEFAULT_MODE); });
 $('#online').addEventListener('close', () => { placeWakeBanner(); if (!state && !net) showMenu(); }); // «Отмена» на пустом поле — новая 1v1
 $('#nearby').addEventListener('close', () => { placeWakeBanner(); if (!state && !net && !$('#online').open) showMenu(); });
