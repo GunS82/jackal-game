@@ -148,6 +148,99 @@ async function inspectMobileLayout(page) {
   });
 }
 
+async function inspectBoardGrid(page) {
+  return page.evaluate(() => {
+    const cells = [...document.querySelectorAll('#board .cell')];
+    const rect = cell => {
+      const box = cell.getBoundingClientRect();
+      return { key: cell.dataset.cell, left: box.left, top: box.top, width: box.width, height: box.height };
+    };
+    return { cells: cells.map(rect) };
+  });
+}
+
+function assertRegularBoardGrid(layout, label) {
+  const cells = new Map(layout.cells.map(cell => [cell.key, cell]));
+  assert.equal(cells.size, 169, `${label}: all 169 cells should be present`);
+  const origin = cells.get('0,0'), nextColumn = cells.get('1,0'), nextRow = cells.get('0,1');
+  const stepX = nextColumn.left - origin.left, stepY = nextRow.top - origin.top;
+  for (let y = 0; y < 13; y++) for (let x = 0; x < 13; x++) {
+    const cell = cells.get(`${x},${y}`);
+    assert.ok(cell, `${label}: missing cell ${x},${y}`);
+    assert.ok(Math.abs(cell.left - (origin.left + x * stepX)) < 0.6,
+      `${label}: column ${x}, row ${y} is horizontally displaced (${cell.left} vs ${origin.left + x * stepX})`);
+    assert.ok(Math.abs(cell.top - (origin.top + y * stepY)) < 0.6,
+      `${label}: column ${x}, row ${y} is vertically displaced (${cell.top} vs ${origin.top + y * stepY})`);
+    assert.ok(Math.abs(cell.width - origin.width) < 0.6 && Math.abs(cell.height - origin.height) < 0.6,
+      `${label}: cell ${x},${y} has a different size`);
+  }
+}
+
+test('selecting either ship keeps the mobile 13×13 grid aligned', async () => {
+  const states = createFixtureStates();
+  const screenshots = process.env.MOBILE_LAYOUT_SCREENSHOT_DIR
+    ? resolve(process.cwd(), process.env.MOBILE_LAYOUT_SCREENSHOT_DIR)
+    : null;
+  if (screenshots) await mkdir(screenshots, { recursive: true });
+
+  const server = await startStaticServer();
+  const address = server.address();
+  const baseUrl = `http://127.0.0.1:${address.port}/`;
+  let browser;
+  try {
+    browser = await chromium.launch({ headless: true, channel: 'chromium' });
+    for (const viewport of [{ width: 412, height: 915 }, { width: 360, height: 780 }]) {
+      for (const turn of ['white', 'black']) {
+        const context = await browser.newContext({ viewport, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
+        const page = await context.newPage();
+        try {
+          await page.addInitScript(({ serialized }) => {
+            localStorage.setItem('jackal-save', serialized);
+            localStorage.setItem('jackal-me', 'all');
+          }, { serialized: states[turn].serialized });
+          await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
+          await page.locator('#continueBtn').waitFor({ state: 'visible' });
+          await page.locator('#continueBtn').click();
+          await page.waitForFunction(() => document.querySelectorAll('#board .cell').length === 169);
+
+          const shipCell = turn === 'white' ? '6,12' : '6,0';
+          await page.locator(`#board [data-cell="${shipCell}"]`).click();
+          await page.locator('#board .plate').waitFor({ state: 'visible' });
+          assertRegularBoardGrid(await inspectBoardGrid(page), `${viewport.width}×${viewport.height}, ${turn}, crew plate`);
+
+          await page.locator('#board .plate .tok').first().click();
+          assert.equal(await page.locator('#shipBtn').isEnabled(), true, `${turn}'s ship should be available`);
+          await page.locator('#shipBtn').click();
+          await page.waitForFunction(() => document.querySelectorAll('#board .cell.target').length > 0);
+          assertRegularBoardGrid(await inspectBoardGrid(page), `${viewport.width}×${viewport.height}, ${turn}, ship selected`);
+          if (screenshots) await page.screenshot({
+            path: resolve(screenshots, `${viewport.width}x${viewport.height}-${turn}-ship-fit.png`),
+            animations: 'disabled', scale: 'css',
+          });
+
+          const shipBox = await page.locator(`#board [data-cell="${shipCell}"]`).boundingBox();
+          const viewportBox = await page.locator('#boardViewport').boundingBox();
+          await page.locator('#boardViewport').dblclick({ position: {
+            x: shipBox.x + shipBox.width / 2 - viewportBox.x,
+            y: shipBox.y + shipBox.height / 2 - viewportBox.y,
+          } });
+          await page.waitForFunction(() => document.querySelector('#zoomLevel').value !== 'Целиком');
+          assertRegularBoardGrid(await inspectBoardGrid(page), `${viewport.width}×${viewport.height}, ${turn}, ship selected and zoomed`);
+          if (screenshots) await page.screenshot({
+            path: resolve(screenshots, `${viewport.width}x${viewport.height}-${turn}-ship-zoom.png`),
+            animations: 'disabled', scale: 'css',
+          });
+        } finally {
+          await context.close();
+        }
+      }
+    }
+  } finally {
+    await browser?.close();
+    await new Promise(resolveServer => server.close(resolveServer));
+  }
+});
+
 test('mobile zoom, fixed hot-seat orientation, and desktop layout work without overlaps', async () => {
   const states = createFixtureStates();
   const screenshots = process.env.MOBILE_LAYOUT_SCREENSHOT_DIR

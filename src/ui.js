@@ -251,6 +251,7 @@ function render() {
   for (let y = 0; y < G.N; y++) for (let x = 0; x < G.N; x++) {
     const c = document.createElement('button'); c.type = 'button'; c.className = 'cell';
     c.dataset.cell = `${x},${y}`;
+    c.style.gridArea = `${y + 1} / ${x + 1}`; // плашка поверх поля не должна сдвигать соседние клетки при auto-placement
     const t = G.tileAt(s, x, y), details = t ? V.tileDetails(t) : null;
     if (t) { c.classList.add(t.open ? 'open' : 'closed', 'k-' + t.kind); if (t.used) c.classList.add('used'); c.innerHTML = tileHTML(t); c.title = `${details.name}. ${details.rule}`; } else c.classList.add('sea');
     const sh = G.shipAt(s, x, y);
