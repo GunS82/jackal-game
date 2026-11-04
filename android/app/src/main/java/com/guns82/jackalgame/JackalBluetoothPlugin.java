@@ -29,7 +29,6 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -129,8 +128,6 @@ public class JackalBluetoothPlugin extends Plugin {
             if (!adapter.isEnabled()) { call.reject("Включите Bluetooth, чтобы найти телефоны рядом."); return; }
             stopDiscoveryReceiver();
             JSArray devices = new JSArray();
-            Set<BluetoothDevice> bonded = adapter.getBondedDevices();
-            if (bonded != null) for (BluetoothDevice device : bonded) devices.put(deviceInfo(device));
             IntentFilter filter = new IntentFilter(BluetoothDevice.ACTION_FOUND);
             filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
             discoveryReceiver = new BroadcastReceiver() {
@@ -158,10 +155,11 @@ public class JackalBluetoothPlugin extends Plugin {
             adapter.cancelDiscovery();
             JSObject result = new JSObject();
             result.put("devices", devices);
-            result.put("scanning", adapter.startDiscovery());
+            boolean scanning = adapter.startDiscovery();
+            result.put("scanning", scanning);
             call.resolve(result);
             JSObject scan = new JSObject();
-            scan.put("scanning", true);
+            scan.put("scanning", scanning);
             notifyListeners("scanState", scan);
         } catch (Exception e) {
             stopDiscoveryReceiver();
