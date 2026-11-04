@@ -39,7 +39,21 @@ test('spin-coin.json: монета едет с пиратом через вер�
   assert.equal(G.tileAt(s, 6, 10).coins, 0); assert.equal(s.pirates[0].carry, 1);
   s = mv(s, m => m.via === 'spin' && m.coin); s = mv(s, m => m.via === 'spin' && m.coin); assert.equal(s.pirates[0].spin, 3); assert.equal(G.tileAt(s, 6, 9).coins, 0);
   s = mv(s, m => m.x === 6 && m.y === 8 && m.coin);
-  assert.deepEqual([s.pirates[0].x, s.pirates[0].y, s.pirates[0].carry], [6, 8, 0]); assert.equal(G.tileAt(s, 6, 8).coins, 1); assert.equal(G.coinsLeft(s), 1);
+  assert.deepEqual([s.pirates[0].x, s.pirates[0].y, s.pirates[0].carry], [6, 8, 1]); assert.equal(G.tileAt(s, 6, 8).coins, 0); assert.equal(G.coinsLeft(s), 1);
+});
+test('issue 23: монета остаётся у пирата между ходами и сбрасывается только по выбору', () => {
+  let s = pos({ mode: '1v1', tiles: { '5,5': { kind: 'empty', open: true, coins: 1 }, '5,4': { kind: 'empty', open: true }, '5,3': { kind: 'empty', open: true }, '5,2': { kind: 'empty', open: true } }, pirates: [{ team: 0, x: 5, y: 5 }, { team: 2, onShip: true }] });
+  const passOpponent = () => { const move = G.legalMoves(s).find(m => m.type === 'move'); assert.ok(move, 'у соперника есть ход'); s = G.applyMove(s, move); };
+  const carrierMove = (x, y, coin = true) => { const move = G.legalMoves(s).find(m => m.pid === 0 && m.x === x && m.y === y && m.coin === coin); assert.ok(move, `ход с монетой=${coin} на ${x},${y}`); s = G.applyMove(s, move); };
+  carrierMove(5, 4);
+  assert.equal(s.pirates[0].carry, 1); assert.equal(G.tileAt(s, 5, 5).coins, 0); assert.equal(G.tileAt(s, 5, 4).coins, 0);
+  s = G.loadState(G.serialize(s)); assert.equal(s.pirates[0].carry, 1, 'груз сохраняется в позиции');
+  passOpponent(); carrierMove(5, 3);
+  assert.equal(s.pirates[0].carry, 1); assert.equal(G.tileAt(s, 5, 4).coins, 0); assert.equal(G.coinsLeft(s), 1);
+  passOpponent();
+  assert.equal(V.buttons(s, G.legalMoves(s), { sel: 0, withCoin: true }).coin.disabled, false, 'кнопка позволяет оставить груз');
+  carrierMove(5, 2, false);
+  assert.equal(s.pirates[0].carry, 0); assert.equal(G.tileAt(s, 5, 3).coins, 1, 'монета осталась на исходной клетке'); assert.equal(G.coinsLeft(s), 1);
 });
 test('файл неверной версии', () => { assert.throws(() => G.loadState({ version: 99, pirates: [] }), /версия/); });
 

@@ -249,7 +249,7 @@ function walk(s, p, x, y, via, v) {
     friends.forEach(q => q.trapped = false);
     if (t.kind === 'trap') p.trapped = friends.length === 0 && via !== 'spin' && p.role !== 'friday'; // Пятница не падает в ямы
     if (t.kind === 'barrel') p.drunkUntil = s.turn + activeTeams(s.mode).length + 1; // бочонок: пропустить ровно один свой ход (в 1v1 команд две, в 2p/2v2/4p — четыре)
-    if (v) { if (SPIN[t.kind]) p.carry = v; else put(t, v); } // на вертушке груз едет «в руках»
+    if (v) p.carry = v; // груз остаётся у пирата до явного сброса или потери по правилам
     let ev = null;
     if (fresh || t.lit) { delete t.lit; ev = effect(s, t, p, x, y); }
     if (ev === 'quake') s.pending = { type: 'quake', pid: p.id, first: null };
@@ -295,7 +295,7 @@ function walk(s, p, x, y, via, v) {
       const waiters = s.pirates.filter(q => q !== p && q.alive && q.inCave);
       if (fresh && waiters.length) { // открыт второй ход: заблудившиеся выходят здесь, открывший переносится на их вход
         const [wx, wy] = [waiters[0].x, waiters[0].y];
-        for (const q of waiters) { q.x = x; q.y = y; q.inCave = false; if (q.carry) { put(t, q.carry); q.carry = 0; } msg(s, `🕳 ${pname(s, q)} выбрался из пещеры`); }
+        for (const q of waiters) { q.x = x; q.y = y; q.inCave = false; msg(s, `🕳 ${pname(s, q)} выбрался из пещеры`); }
         return stand(wx, wy, tileAt(s, wx, wy), false);
       }
       if (caveExits(s, p).length) { s.pending = { type: 'cave', pid: p.id, coin: v > 0, treasure: v === TREASURE_VALUE, origin, visits }; return; }
