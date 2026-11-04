@@ -11,7 +11,7 @@ import {
 const $ = s => document.querySelector(s);
 let plate = null; // плашка выбора пирата: { x, y, pids }
 let state = null, sel = null, withCoin = false, notice = '';
-let logExpanded = false, lastCenteredTurn = null, noticeTimer = null;
+let logExpanded = false, noticeTimer = null;
 const boardView = { scale: 1, minScale: 1, maxScale: 3, x: 0, y: 0, mobileLayout: null };
 const pointers = new Map();
 let gesture = null, longPressTimer = null;
@@ -120,14 +120,16 @@ function zoomBoard(scale, focusX, focusY) {
   clampBoardView();
 }
 function centerBoardCell(x, y) {
-  if (boardView.scale <= boardView.minScale + .001) return;
+  const viewport = $('#boardViewport'), board = $('#board');
+  clearTimeout(centeringTimer);
+  viewport.classList.remove('is-centering');
+  board.getBoundingClientRect(); // settle an earlier animation before measuring the next target
   const cell = $(`#board [data-cell="${x},${y}"]`); if (!cell) return;
-  const viewport = $('#boardViewport'), v = viewport.getBoundingClientRect(), c = cell.getBoundingClientRect();
+  const v = viewport.getBoundingClientRect(), c = cell.getBoundingClientRect();
   viewport.classList.add('is-centering');
   boardView.x += v.left + v.width / 2 - (c.left + c.width / 2);
   boardView.y += v.top + v.height / 2 - (c.top + c.height / 2);
   clampBoardView();
-  clearTimeout(centeringTimer);
   centeringTimer = setTimeout(() => viewport.classList.remove('is-centering'), 220);
 }
 function showTileInfoAt(x, y) {
@@ -356,30 +358,25 @@ function render() {
   renderMobilePirates(s, moves);
   renderBanner();
   applyMobileBoardLayout();
-  const turnKey = `${s.turn}:${s.current}`;
-  if (turnKey !== lastCenteredTurn) {
-    lastCenteredTurn = turnKey;
-    const first = moves.find(m => m.type === 'move' && m.pid != null) ?? moves.find(m => m.type === 'ship') ?? moves[0];
-    const p = first?.pid != null ? s.pirates[first.pid] : null;
-    if (first && compact && !isHotSeat()) requestAnimationFrame(() => centerBoardCell(p?.x ?? first.x, p?.y ?? first.y));
-  }
   if (!net) localStorage.setItem('jackal-save', G.serialize(s));
 }
 function renderMobilePirates(s, moves) {
   const el = $('#mobilePirates'), available = new Set(moves.map(m => m.pid));
   const team = V.crewPanel(s, s.current);
   const slots = team.regular.map(p => {
-    const piece = s.pirates[p.pid], selected = sel === p.pid;
+    const piece = s.pirates[p.pid], selected = sel === p.pid, carriesCoin = V.pirateHasCoin(s, piece);
+    const treasure = piece.carry === G.TREASURE_VALUE || s.pending?.pid === piece.id && s.pending.treasure;
+    const cargo = carriesCoin ? `несёт ${treasure ? 'сокровище' : 'монету'}` : '';
     const label = `П${p.num}`;
-    return `<button type="button" class="mobile-pirate${selected ? ' sel' : ''}" data-pid="${p.pid}" aria-pressed="${selected}" aria-label="${label}${selected ? ', выбран' : ''}" title="${G.pieceName(s, piece)}${p.alive ? '' : ' — погиб'}"${!myTurn() || !p.alive || !available.has(p.pid) ? ' disabled' : ''}>${pic(pieceImg(piece), '●', 'ti')}<span class="pirate-choice"><b>${label}</b>${selected ? '<small>▲ выбран</small>' : ''}</span></button>`;
+    return `<button type="button" class="mobile-pirate${selected ? ' sel' : ''}" data-pid="${p.pid}" aria-pressed="${selected}" aria-label="${label}${cargo ? `, ${cargo}` : ''}${selected ? ', выбран' : ''}" title="${G.pieceName(s, piece)}${cargo ? ` — ${cargo}` : ''}${p.alive ? '' : ' — погиб'}"${!myTurn() || !p.alive || !available.has(p.pid) ? ' disabled' : ''}>${pic(pieceImg(piece), '●', 'ti')}${carriesCoin ? pic(treasure ? treasureImg : coinImg, treasure ? '💰' : '🪙', 'mobile-cargo') : ''}<span class="pirate-choice"><b>${label}</b>${selected ? '<small>▲ выбран</small>' : ''}</span></button>`;
   });
   while (slots.length < 3) slots.push(`<button type="button" class="mobile-pirate" disabled aria-label="Нет пирата">—</button>`);
   slots.push(`<button id="mobileCancel" type="button" aria-label="Отменить выбор"${!myTurn() || sel == null && !plate ? ' disabled' : ''}>Отмена</button>`);
   el.innerHTML = slots.join('');
-  el.querySelectorAll('.mobile-pirate:not([disabled])').forEach(button => button.onclick = () => choose(+button.dataset.pid));
+  el.querySelectorAll('.mobile-pirate:not([disabled])').forEach(button => button.onclick = () => choose(+button.dataset.pid, { center: true }));
   $('#mobileCancel').onclick = () => { sel = null; plate = null; withCoin = false; render(); };
 }
-function choose(pid) { sel = pid; const p = state.pirates[pid], c = p.carry; withCoin = c === G.TREASURE_VALUE ? 'T' : !!c; plate = null; render(); if (!isHotSeat()) requestAnimationFrame(() => centerBoardCell(p.x, p.y)); }
+function choose(pid, { center = !isHotSeat() } = {}) { sel = pid; const p = state.pirates[pid], c = p.carry; withCoin = c === G.TREASURE_VALUE ? 'T' : !!c; plate = null; render(); if (center) requestAnimationFrame(() => centerBoardCell(p.x, p.y)); }
 function renderCrew(s, moves) {
   const can = new Set(moves.map(m => m.pid)), el = $('#crew');
   const tok = (t, color) => { const p = s.pirates[t.pid];
@@ -437,7 +434,7 @@ function updateOnlineDialog() {
 function goOnline(sess) {
   net?.stop(); net = { sess, type: 'online', connected: false, opponent: 'waiting', stop: null, gone: false };
   updateOnlineDialog();
-  state = null; lastCenteredTurn = null; $('#board').innerHTML = ''; $('#me').closest('label').hidden = true; // не показывать прежнюю локальную партию (2p) до прихода состояния 1v1
+  state = null; $('#board').innerHTML = ''; $('#me').closest('label').hidden = true; // не показывать прежнюю локальную партию (2p) до прихода состояния 1v1
   net.stop = Net.connect(sess, msg => {
     state = msg.state; net.opponent = msg.opponent; showCode(msg.code);
     if (msg.opponent !== 'waiting' && $('#online').open) $('#online').close();
@@ -600,10 +597,10 @@ function click(x, y, targets) {
   render();
 }
 
-function start(mode) { if (!goLocal()) return; $('#crew').hidden = false; $('#turnDot').hidden = false; state = G.newGame({ mode, seed: Date.now() % 1e9, options: { houseCrocDeath: $('#optCroc').checked, archipelagoMissionary: $('#optArch').checked } }); sel = null; logExpanded = false; lastCenteredTurn = null; render(); }
+function start(mode) { if (!goLocal()) return; $('#crew').hidden = false; $('#turnDot').hidden = false; state = G.newGame({ mode, seed: Date.now() % 1e9, options: { houseCrocDeath: $('#optCroc').checked, archipelagoMissionary: $('#optArch').checked } }); sel = null; logExpanded = false; render(); }
 $('#coinBtn').onclick = () => { withCoin = V.nextCargo(G.legalMoves(state), sel, withCoin); render(); };
 $('#rumBtn').onclick = () => { sel = sel === 'rum' ? null : 'rum'; render(); };
-$('#shipBtn').onclick = () => { sel = sel === 'ship' ? null : 'ship'; render(); };
+$('#shipBtn').onclick = () => { sel = sel === 'ship' ? null : 'ship'; const ship = state.ships[state.current]; render(); requestAnimationFrame(() => centerBoardCell(ship.x, ship.y)); };
 $('#reviveBtn').onclick = () => { const m = G.legalMoves(G.publicState(state)).find(m => m.type === 'revive'); if (m) play(m); };
 $('#crewLeft').onclick = () => $('#crew').scrollBy({ left: -120, behavior: 'smooth' });
 $('#crewRight').onclick = () => $('#crew').scrollBy({ left: 120, behavior: 'smooth' });
@@ -618,7 +615,7 @@ $('#loadBtn').onclick = () => {
   else fileConfirmed = !V.localInProgress(state) || confirm(V.LOSE_LOCAL_Q); // локально: спросить ДО окна выбора файла
   if (fileConfirmed) $('#file').click();
 };
-$('#file').onchange = async e => { const f = e.target.files[0]; if (!f) return; try { if (!goLocal(fileConfirmed)) return; state = G.loadState(await f.text()); sel = null; lastCenteredTurn = null; render(); } catch (err) { alert(err.message); } e.target.value = ''; };
+$('#file').onchange = async e => { const f = e.target.files[0]; if (!f) return; try { if (!goLocal(fileConfirmed)) return; state = G.loadState(await f.text()); sel = null; render(); } catch (err) { alert(err.message); } e.target.value = ''; };
 // v0.5.19: плашка статуса сервера — до ответа /health.
 let awake = null, waking = null;
 function placeWakeBanner() {
@@ -774,7 +771,7 @@ $('#mobileLogToggle').onclick = () => {
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#mobileMenu').hidden) setMobileMenu(false); });
 // первое нажатие где угодно снимает заметку (и после перезагрузки она видна до него)
 addEventListener('pointerdown', () => { if (!sessionStorage.getItem(V.NOTE_KEY)) return; sessionStorage.removeItem(V.NOTE_KEY); const n = $('#menuNote'); n.hidden = true; n.textContent = ''; }, true); // текст убрать, чтобы скринридер не читал
-$('#continueBtn').onclick = () => { if (!goLocal()) return; try { state = G.loadState(localStorage.getItem('jackal-save')); sel = null; plate = null; lastCenteredTurn = null; $('#crew').hidden = false; $('#menu').close(); render(); } catch (e) { alert(e.message); } };
+$('#continueBtn').onclick = () => { if (!goLocal()) return; try { state = G.loadState(localStorage.getItem('jackal-save')); sel = null; plate = null; $('#crew').hidden = false; $('#menu').close(); render(); } catch (e) { alert(e.message); } };
 $('#menu').addEventListener('close', () => { placeWakeBanner(); if (!state && !net && !$('#online').open && !$('#nearby').open) start(V.DEFAULT_MODE); });
 $('#online').addEventListener('close', () => { placeWakeBanner(); if (!state && !net) showMenu(); }); // «Отмена» на пустом поле — новая 1v1
 $('#nearby').addEventListener('close', () => { placeWakeBanner(); if (!state && !net && !$('#online').open) showMenu(); });

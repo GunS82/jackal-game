@@ -286,6 +286,8 @@ test('mobile zoom, fixed hot-seat orientation, and desktop layout work without o
           const pirate = page.locator('#mobilePirates button.mobile-pirate:not([disabled])').first();
           await pirate.click();
           await page.locator('#mobilePirates .mobile-pirate.sel').waitFor();
+          await page.locator('#zoomFit').click();
+          await page.waitForFunction(() => new DOMMatrixReadOnly(getComputedStyle(document.querySelector('#board')).transform).a <= 1.001);
 
           let layout = await inspectMobileLayout(page);
           assert.equal(layout.cellCount, 169, 'all 13×13 cells should be rendered');

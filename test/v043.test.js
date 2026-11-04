@@ -15,10 +15,10 @@ test('пещера: монета проходит с пиратом и несё�
   assert.equal(s.pending.type, 'cave'); assert.equal(s.pending.coin, true);
   s = mv(s, m => m.via === 'cave' && m.x === 9 && m.y === 2 && m.coin);
   assert.deepEqual([s.pirates[pid].x, s.pirates[pid].y], [9, 2]);
-  assert.equal(G.tileAt(s, 9, 2).coins, 1); assert.equal(G.tileAt(s, 2, 9).coins, 0); assert.equal(G.tileAt(s, 2, 8).coins, 0);
+  assert.equal(s.pirates[pid].carry, 1); assert.equal(G.tileAt(s, 9, 2).coins, 0); assert.equal(G.tileAt(s, 2, 9).coins, 0); assert.equal(G.tileAt(s, 2, 8).coins, 0);
   s = pass(s);
   s = mv(s, m => m.pid === pid && m.coin && m.x === 9 && m.y === 3);
-  assert.equal(G.tileAt(s, 9, 3).coins, 1); assert.equal(G.tileAt(s, 9, 2).coins, 0);
+  assert.equal(s.pirates[pid].carry, 1); assert.equal(G.tileAt(s, 9, 3).coins, 0); assert.equal(G.tileAt(s, 9, 2).coins, 0);
 });
 
 test('пещера: заблудившийся выходит (с грузом) на открытую пещеру, открывший — на его вход (v04-cave-swap)', () => {
@@ -27,7 +27,7 @@ test('пещера: заблудившийся выходит (с грузом) 
   assert.equal(lost.carry, 1); assert.ok(!G.legalMoves(s).some(m => m.pid === lost.id), 'выхода нет — ждёт');
   s = mv(s, m => m.pid === opener.id && m.x === 9 && m.y === 9);
   const L = s.pirates[lost.id], O = s.pirates[opener.id];
-  assert.deepEqual([L.x, L.y, !!L.inCave, L.carry], [9, 9, false, 0]); assert.equal(G.tileAt(s, 9, 9).coins, 1);
+  assert.deepEqual([L.x, L.y, !!L.inCave, L.carry], [9, 9, false, 1]); assert.equal(G.tileAt(s, 9, 9).coins, 0);
   assert.deepEqual([O.x, O.y, !!O.inCave], [3, 3, false]); assert.equal(s.current, 2);
 });
 

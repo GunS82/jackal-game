@@ -102,7 +102,8 @@ test('issue 21: hot-seat camera stays fixed and Bluetooth lists only active disc
           assert.ok(legalMove, `${team} has an available pirate away from its ship`);
           const initialCamera = await camera(page);
           assert.ok(initialCamera.scaleX > 1.05, `${team}: test exercises a manually zoomed camera`);
-          await page.locator(`#mobilePirates [data-pid="${legalMove.pid}"]`).click();
+          const actor = before.pirates[legalMove.pid];
+          await page.locator(`#board [data-cell="${actor.x},${actor.y}"]`).evaluate(cell => cell.click());
           await page.locator(`#mobilePirates [data-pid="${legalMove.pid}"].sel`).waitFor();
           assert.deepEqual(await camera(page), initialCamera, `${team}: selecting a pirate must not move or zoom the board`);
 

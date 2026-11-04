@@ -36,7 +36,7 @@ test('пещера: открытые вход и выход — переход �
   s = mv(s, m => m.x === 3 && m.y === 3 && m.coin);
   assert.equal(s.pending.type, 'cave'); assert.equal(s.current, 0);
   s = mv(s, m => m.via === 'cave' && m.x === 9 && m.y === 9);
-  assert.deepEqual(at(s, 0), [9, 9]); assert.equal(G.tileAt(s, 9, 9).coins, 1); assert.equal(s.current, 2);
+  assert.deepEqual(at(s, 0), [9, 9]); assert.equal(s.pirates[0].carry, 1); assert.equal(G.tileAt(s, 9, 9).coins, 0); assert.equal(s.current, 2);
   let b = pos({ mode: '1v1', tiles: { '3,3': { kind: 'cave' }, '9,9': { kind: 'cave' } }, pirates: [{ team: 0, x: 3, y: 4 }, { team: 2, x: 9, y: 9 }] });
   b = mv(b, m => m.x === 3 && m.y === 3); assert.equal(b.pirates[0].inCave, true); assert.equal(b.pending, null);
 });
@@ -94,7 +94,7 @@ test('галеон: сокровище = 3 монеты, переносится 
   assert.equal(G.coinsLeft(s), 3);
   s = mv(s, m => m.x === 6 && m.y === 10); assert.equal(G.tileAt(s, 6, 10).treasure, 1); s = pass2(s);
   assert.ok(G.legalMoves(s).some(m => m.pid === 0 && m.treasure && m.x === 6 && m.y === 11));
-  s = mv(s, m => m.pid === 0 && m.treasure && m.x === 6 && m.y === 11); assert.equal(G.tileAt(s, 6, 11).treasure, 1); s = pass2(s);
+  s = mv(s, m => m.pid === 0 && m.treasure && m.x === 6 && m.y === 11); assert.equal(s.pirates[0].carry, 3); assert.equal(G.tileAt(s, 6, 11).treasure || 0, 0); s = pass2(s);
   s = mv(s, m => m.pid === 0 && m.treasure && m.y === 12);
   assert.equal(s.score[0], 3); assert.equal(G.coinsLeft(s), 0);
   const w = pos({ tiles: { '6,10': { treasure: 1 }, '7,10': { kind: 'arrow1', rot: 1 } }, pirates: [{ team: 0, x: 6, y: 10 }] });
