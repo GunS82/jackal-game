@@ -44,6 +44,7 @@ function tileHTML(t) {
   return h;
 }
 const myTurn = () => net ? !state.over && G.controllerOf(state) === net.sess.player : me === 'all' || G.controllerOf(state) === +me;
+const isHotSeat = () => !net && me === 'all';
 
 function viewportSize() { const v = $('#boardViewport'); return { v, w: v.clientWidth, h: v.clientHeight, bw: $('#board').offsetWidth, bh: $('#board').offsetHeight }; }
 function compactLayout() { return matchMedia('(max-width: 600px), (orientation: portrait)').matches; }
@@ -360,7 +361,7 @@ function render() {
     lastCenteredTurn = turnKey;
     const first = moves.find(m => m.type === 'move' && m.pid != null) ?? moves.find(m => m.type === 'ship') ?? moves[0];
     const p = first?.pid != null ? s.pirates[first.pid] : null;
-    if (first && compact) requestAnimationFrame(() => centerBoardCell(p?.x ?? first.x, p?.y ?? first.y));
+    if (first && compact && !isHotSeat()) requestAnimationFrame(() => centerBoardCell(p?.x ?? first.x, p?.y ?? first.y));
   }
   if (!net) localStorage.setItem('jackal-save', G.serialize(s));
 }
@@ -378,7 +379,7 @@ function renderMobilePirates(s, moves) {
   el.querySelectorAll('.mobile-pirate:not([disabled])').forEach(button => button.onclick = () => choose(+button.dataset.pid));
   $('#mobileCancel').onclick = () => { sel = null; plate = null; withCoin = false; render(); };
 }
-function choose(pid) { sel = pid; const p = state.pirates[pid], c = p.carry; withCoin = c === G.TREASURE_VALUE ? 'T' : !!c; plate = null; render(); requestAnimationFrame(() => centerBoardCell(p.x, p.y)); }
+function choose(pid) { sel = pid; const p = state.pirates[pid], c = p.carry; withCoin = c === G.TREASURE_VALUE ? 'T' : !!c; plate = null; render(); if (!isHotSeat()) requestAnimationFrame(() => centerBoardCell(p.x, p.y)); }
 function renderCrew(s, moves) {
   const can = new Set(moves.map(m => m.pid)), el = $('#crew');
   const tok = (t, color) => { const p = s.pirates[t.pid];
@@ -462,6 +463,7 @@ function goLocal(confirmed = false) {
 function showCode(code) { $('#codeBox').innerHTML = [...code].map(c => `<span>${c}</span>`).join(''); $('#codeArea').hidden = false; }
 
 const bluetooth = () => globalThis.jackalBluetooth;
+let btScanListeners = [], btScanGeneration = 0;
 function addBluetoothDevice(device) {
   if (!device?.address || $(`#btDevices [data-address="${device.address}"]`)) return;
   const li = document.createElement('li'), button = document.createElement('button');
@@ -469,6 +471,22 @@ function addBluetoothDevice(device) {
   button.onclick = () => joinBluetooth(device.address);
   li.append(button); $('#btDevices').append(li);
 }
+async function clearBluetoothScanListeners() {
+  const listeners = btScanListeners;
+  btScanListeners = [];
+  await Promise.all(listeners.map(listener => listener.remove()));
+}
+function setBluetoothScanStatus(scanning) {
+  const status = $('#btErr'), button = $('#btScanBtn'), devices = $('#btDevices');
+  status.classList.toggle('searching', scanning);
+  status.textContent = scanning ? 'Идёт поиск телефонов рядом…' : devices.children.length ? '' : 'Телефоны рядом не найдены.';
+  devices.setAttribute('aria-busy', String(scanning));
+  button.disabled = scanning;
+}
+$('#nearby').addEventListener('close', () => {
+  btScanGeneration++;
+  void clearBluetoothScanListeners();
+});
 async function sendBluetooth(message) {
   const plugin = bluetooth();
   if (!plugin) throw new Error('Bluetooth доступен только в Android-приложении.');
@@ -637,19 +655,41 @@ async function needServer() {
 }
 // Онлайн-меню
 $('#onlineBtn').onclick = () => { $('#menu').close(); $('#onlineErr').textContent = ''; updateOnlineDialog(); $('#online').showModal(); placeWakeBanner(); if (!net) wakeServer(); };
-$('#nearbyBtn').onclick = () => { $('#menu').close(); $('#btErr').textContent = ''; $('#btDevices').innerHTML = ''; $('#nearby').showModal(); placeWakeBanner(); };
+$('#nearbyBtn').onclick = () => { $('#menu').close(); $('#btErr').textContent = ''; $('#btErr').classList.remove('searching'); $('#btDevices').innerHTML = ''; $('#btDevices').setAttribute('aria-busy', 'false'); $('#btScanBtn').disabled = false; $('#nearby').showModal(); placeWakeBanner(); };
 $('#btHostBtn').onclick = hostBluetooth;
 $('#btScanBtn').onclick = async () => {
   const plugin = bluetooth();
   if (!plugin) { $('#btErr').textContent = 'Bluetooth-игра доступна только в Android-приложении.'; return; }
-  $('#btErr').textContent = ''; $('#btDevices').innerHTML = '';
+  const generation = ++btScanGeneration;
+  $('#btErr').textContent = ''; $('#btErr').classList.remove('searching'); $('#btDevices').innerHTML = '';
+  $('#btDevices').setAttribute('aria-busy', 'true'); $('#btScanBtn').disabled = true;
   try {
+    await clearBluetoothScanListeners();
+    if (generation !== btScanGeneration) return;
+    let finished = false;
+    const stateListener = await plugin.addListener('scanState', event => {
+      if (generation !== btScanGeneration || event?.scanning !== false) return;
+      finished = true;
+      setBluetoothScanStatus(false);
+    });
+    btScanListeners = [stateListener];
     const found = await plugin.addListener('deviceFound', addBluetoothDevice);
+    btScanListeners.push(found);
     const scan = await plugin.discoverDevices();
-    for (const device of scan.devices || []) addBluetoothDevice(device);
-    if (!scan.scanning) $('#btErr').textContent = 'Не удалось начать поиск. Проверьте разрешения Bluetooth.';
-    $('#nearby').addEventListener('close', () => found.remove(), { once: true });
-  } catch (e) { $('#btErr').textContent = e.message; }
+    if (!scan.scanning) {
+      finished = true;
+      $('#btErr').classList.remove('searching');
+      $('#btErr').textContent = 'Не удалось начать поиск. Проверьте разрешения Bluetooth.';
+      $('#btDevices').setAttribute('aria-busy', 'false'); $('#btScanBtn').disabled = false;
+      await clearBluetoothScanListeners();
+    } else if (!finished && generation === btScanGeneration) setBluetoothScanStatus(true);
+  } catch (e) {
+    await clearBluetoothScanListeners();
+    if (generation === btScanGeneration) {
+      $('#btErr').classList.remove('searching'); $('#btErr').textContent = e.message;
+      $('#btDevices').setAttribute('aria-busy', 'false'); $('#btScanBtn').disabled = false;
+    }
+  }
 };
 $('#createBtn').onclick = async () => { try { await needServer(); if (!goLocal()) return; const sess = await Net.create({ houseCrocDeath: $('#optCroc').checked, archipelagoMissionary: $('#optArch').checked }); showCode(sess.code); goOnline(sess); } catch (e) { $('#onlineErr').textContent = e.message; } };
 $('#shareBtn').onclick = async () => { const code = net?.sess.code; if (!code) return; const text = `Сыграем в «Шакал»? Код игры: ${code} — ${location.origin}`; try { if (navigator.share) await navigator.share({ text }); else { await navigator.clipboard.writeText(code); $('#onlineErr').textContent = 'Код скопирован'; } } catch {} };
